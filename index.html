@@ -710,10 +710,20 @@ photoInput.addEventListener('change', async ()=>{
   document.getElementById('photoImg').src = url;
   document.getElementById('photoPreview').style.display = 'block';
   // 사진 축소 (전송 비용/속도 절약)
-  const base64 = await shrinkImage(file, 1400);
   statusBox.classList.add('show');
-  statusText.textContent = '사진 읽는 중...';
+  statusText.textContent = '사진 준비 중...';
   photoBtn.disabled = true;
+  let imgData;
+  try{
+    imgData = await shrinkImage(file, 1100);
+  }catch(prepErr){
+    showError('사진 읽기 실패.<br><b>원인: ' + escapeHtml(prepErr.message) + '</b>');
+    statusBox.classList.remove('show');
+    photoBtn.disabled = false;
+    photoInput.value = '';
+    return;
+  }
+  statusText.textContent = '사진 읽는 중...';
 
   const prompt = `당신은 아크릴 가공 공장(세명아크릴)의 공용 비서입니다. 등록하는 사람: ${currentUser}
 이 사진은 카카오톡 대화 캡처, 문자 캡처, 주문서, 또는 도면입니다. 사진 속 내용을 읽고 작업 지시와 잊지 말 것을 뽑아내세요.
@@ -734,7 +744,7 @@ ${store.dict.length ? '\n[거래처 사전] 비슷한 이름이 보이면 이 �
 사진에서 일 관련 내용을 못 찾았으면 {"items":[]}`;
 
   try{
-    const parsed = await callClaudeVision(prompt, base64);
+    const parsed = await callClaudeVision(prompt, imgData);
     if (!parsed.items || !parsed.items.length){
       showError('사진에서 작업 내용을 찾지 못했어요. 글자가 잘 보이게 다시 찍어보세요.');
     } else {
@@ -761,22 +771,43 @@ function shrinkImage(file, maxSize){
   return new Promise((resolve, reject)=>{
     const img = new Image();
     img.onload = ()=>{
-      let w = img.width, hgt = img.height;
-      if (Math.max(w,hgt) > maxSize){
-        const r = maxSize / Math.max(w,hgt);
-        w = Math.round(w*r); hgt = Math.round(hgt*r);
-      }
-      const cv = document.createElement('canvas');
-      cv.width = w; cv.height = hgt;
-      cv.getContext('2d').drawImage(img, 0, 0, w, hgt);
-      resolve(cv.toDataURL('image/jpeg', 0.85).split(',')[1]);
+      try{
+        let w = img.width, hgt = img.height;
+        if (Math.max(w,hgt) > maxSize){
+          const r = maxSize / Math.max(w,hgt);
+          w = Math.round(w*r); hgt = Math.round(hgt*r);
+        }
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = hgt;
+        cv.getContext('2d').drawImage(img, 0, 0, w, hgt);
+        const out = cv.toDataURL('image/jpeg', 0.72).split(',')[1];
+        if (!out || out.length < 100) throw new Error('변환 결과가 비어있음');
+        resolve({ data: out, type: 'image/jpeg' });
+      }catch(e){ fallbackRead(); }
     };
-    img.onerror = reject;
+    img.onerror = ()=>fallbackRead();
     img.src = URL.createObjectURL(file);
+
+    // 축소 실패 시: 원본을 그대로 읽어서 전송 (jpeg/png/webp/gif만 가능)
+    function fallbackRead(){
+      const ok = ['image/jpeg','image/png','image/webp','image/gif'];
+      if (!ok.includes(file.type)){
+        reject(new Error('이 사진 형식(' + (file.type||'알 수 없음') + ')은 읽을 수 없어요. 스크린샷(캡처)으로 다시 시도해보세요.'));
+        return;
+      }
+      const r = new FileReader();
+      r.onload = ()=>resolve({ data: String(r.result).split(',')[1], type: file.type });
+      r.onerror = ()=>reject(new Error('사진 파일을 읽지 못했어요'));
+      r.readAsDataURL(file);
+    }
   });
 }
 
-async function callClaudeVision(promptText, base64){
+async function callClaudeVision(promptText, imgData){
+  // 용량 확인 (너무 크면 전송이 끊겨요)
+  if (imgData.data.length > 4500000){
+    throw new Error('사진이 너무 커요. 스크린샷(캡처)으로 다시 시도해보세요.');
+  }
   const key = document.getElementById('keyInput').value.trim();
   const headers = { "Content-Type": "application/json" };
   if (key) {
@@ -784,18 +815,29 @@ async function callClaudeVision(promptText, base64){
     headers["anthropic-version"] = "2023-06-01";
     headers["anthropic-dangerous-direct-browser-access"] = "true";
   }
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 3000,
-      messages: [{ role: "user", content: [
-        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
-        { type: "text", text: promptText }
-      ]}]
-    })
+  const body = JSON.stringify({
+    model: "claude-sonnet-4-6",
+    max_tokens: 3000,
+    messages: [{ role: "user", content: [
+      { type: "image", source: { type: "base64", media_type: imgData.type, data: imgData.data } },
+      { type: "text", text: promptText }
+    ]}]
   });
+
+  let res = null, lastNetErr = null;
+  for (let attempt = 1; attempt <= 2; attempt++){
+    try{
+      res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers, body });
+      lastNetErr = null;
+      break;
+    }catch(netErr){
+      lastNetErr = netErr;
+      statusText.textContent = '연결이 끊겨서 다시 시도 중... (' + attempt + '/2)';
+      await new Promise(r=>setTimeout(r, 1200));
+    }
+  }
+  if (lastNetErr) throw new Error('인터넷 전송이 끊겼어요. 와이파이/데이터 상태를 확인하고 다시 시도해주세요.');
+
   const data = await res.json();
   if (data.error) {
     if (!key) throw new Error('NOKEY');
