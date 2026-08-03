@@ -159,7 +159,7 @@
   }
   @keyframes slidein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
   .item .mark{flex-shrink:0;font-size:16px;margin-top:1px;}
-  .item .body{flex:1;}
+  .item .body{flex:1;cursor:pointer;}
   .item .why{font-size:12.5px;margin-top:3px;opacity:.75;}
   .item.work{background:var(--todo-bg);color:#0d4a77;}
   .item.memo{background:var(--note-bg);color:#7a5408;}
@@ -188,6 +188,22 @@
   .item.done .chk{background:var(--todo);border-color:var(--todo);color:#fff;}
   .item.memo.done .chk{background:var(--note);border-color:var(--note);}
   .item.done .body{text-decoration:line-through;}
+  .specs{margin-top:6px;display:flex;flex-direction:column;gap:4px;}
+  .spec-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+  .sp{
+    display:inline-block;font-size:12px;font-weight:800;
+    border-radius:7px;padding:2.5px 8px;line-height:1.3;
+    background:#fff;border:1.5px solid #d5e2ec;color:#33566f;
+  }
+  .sp-t{background:#12365c;border-color:#12365c;color:#fff;}
+  .sp-size{font-variant-numeric:tabular-nums;letter-spacing:.02em;}
+  .sp-qty{background:#e7f2fb;border-color:#b7d7ee;color:#0b5a94;}
+  .sp-clear{background:rgba(180,220,245,.35);border:1.5px dashed #8fbcd9;color:#33566f;}
+  .sp-white{background:#fff;border-color:#c9d4dd;color:#4a5a68;}
+  .sp-black{background:#23292f;border-color:#23292f;color:#fff;}
+  .sp-mirror{background:linear-gradient(135deg,#e8ecf1,#b9c3cd,#eef2f6);border-color:#aeb9c4;color:#3d4a56;}
+  .sp-smoke{background:#6d7680;border-color:#6d7680;color:#fff;}
+  .sp-brown{background:#8a5a2b;border-color:#8a5a2b;color:#fff;}
   .item button.del{
     border:none;background:none;color:inherit;opacity:.4;
     font-size:15px;cursor:pointer;padding:2px;flex-shrink:0;
@@ -729,8 +745,16 @@ photoInput.addEventListener('change', async ()=>{
 이 사진은 카카오톡 대화 캡처, 문자 캡처, 주문서, 또는 도면입니다. 사진 속 내용을 읽고 작업 지시와 잊지 말 것을 뽑아내세요.
 
 - 카톡/문자 캡처라면: 거래처가 요청한 주문·재단 내용을 뽑으세요. 상대방 이름/업체명이 보이면 text에 포함.
-- 도면이라면: 재질, 두께(T), 가로×세로 치수, 수량, 가공 내용(홀, 밴딩, CNC 등)을 읽어서 작업 지시로 만드세요. 도면에서 읽은 치수는 why에 정리.
+- 도면이라면: 재질, 두께(T), 가로×세로 치수, 수량, 가공 내용(홀, 밴딩, CNC 등)을 읽으세요.
 - 인삿말, 잡담은 무시하세요.
+
+[매우 중요 - 묶기 규칙]
+사진 한 장은 보통 하나의 주문입니다. 품목이나 절단 사이즈가 여러 개여도 작업 지시를 여러 줄로 쪼개지 말고, 공정별로 하나의 작업 지시로 묶으세요.
+- text: "○○업체 재단 (2품목)" 처럼 한 줄 요약
+- 품목별 상세는 "specs" 배열에 정리 (품목마다 하나씩, 모르는 칸은 ""):
+  "specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"},{"두께":"3T","색상":"백색","사이즈":"500×400","수량":"5장"}]
+- why에는 specs에 못 담는 특이사항만 (홀 위치, 마감 지시 등)
+재단과 밴딩처럼 공정이 다르면 그때만 지시를 나누세요.
 
 분류 종류:
 1. "work" = 공장 작업. work_type: "재단"(자르기) / "가공"(밴딩,CNC,UV,홀,접착) / "후작업"(조립,검수,포장,배송준비)
@@ -740,7 +764,7 @@ photoInput.addEventListener('change', async ()=>{
 ${store.dict.length ? '\n[거래처 사전] 비슷한 이름이 보이면 이 표기로: ' + store.dict.join(', ') : ''}
 
 반드시 아래 JSON으로만 답하세요. 다른 말, 백틱 금지.
-{"items":[{"type":"work","work_type":"재단","text":"...","why":"...","due":"","priority":2},{"type":"memo","text":"...","due":"","priority":3}]}
+{"items":[{"type":"work","work_type":"재단","text":"...","why":"...","due":"","priority":2,"specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"}]},{"type":"memo","text":"...","due":"","priority":3}]}
 사진에서 일 관련 내용을 못 찾았으면 {"items":[]}`;
 
   try{
@@ -874,15 +898,20 @@ async function classifyText(text){
    - 택배/배송 보내기
    - 자재 주문하기
    - 가격, 치수, 수량, 재고, 납기일 같은 기억할 정보
-3. "ask" = 비서(당신)에게 하는 질문이나 요청. 예: "남은 일 뭐야?", "오늘 급한 게 뭐지?", "내가 뭐 깜빡한 거 없어?", "재단 몇 개 남았어?"
+3. "update" = 이미 등록된 항목에 정보를 덧붙이거나 고치라는 말. 예: "아까 그 재단 건은 대한상사 거야", "방금 등록한 가공 건 업체는 한빛이야", "그 재단 수량 10장이 아니라 15장이야"
+   → [현재 목록]에서 해당 항목을 찾아 {"type":"update","목록":"work"또는"memo","번호":항목의 번호,"text":"수정된 전체 내용"}으로 답하세요. text는 기존 내용에 새 정보를 합친 완성형으로 쓰세요 (업체명은 맨 앞에).
+4. "ask" = 비서(당신)에게 하는 질문이나 요청. 예: "남은 일 뭐야?", "오늘 급한 게 뭐지?", "내가 뭐 깜빡한 거 없어?", "재단 몇 개 남았어?"
    → 이 경우 아래 [현재 목록]을 보고 "answer"에 말로 들려줄 대답을 쓰세요. 짧고 자연스러운 존댓말 구어체로, 항목이 많으면 급한 것 위주로 요약. 남은 게 없으면 없다고 답하세요.
-4. "chat" = 일과 무관한 잡담, 감탄, 혼잣말
+5. "chat" = 일과 무관한 잡담, 감탄, 혼잣말
 
 공통 규칙:
 - 한 문장에 여러 개가 섞여 있으면 쪼개서 각각 뽑으세요.
 - text는 핵심만 간결하게 다듬어 쓰세요.
 - work와 memo에는 "due"(기한: "오늘", "내일", "오늘 15시", "8/6" 등, 없으면 "")와 "priority"(1=급함: 오늘까지거나 시간이 정해짐, 2=보통, 3=여유)를 붙이세요.
-- "why"에는 놓치면 안 되는 포인트(대상, 조건)를 짧게. 없으면 생략.
+- work에 재질·치수·수량 정보가 있으면 "specs" 배열로 정리하세요. 품목마다 하나씩:
+  "specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"}] (모르는 칸은 "")
+  specs에 넣은 정보는 text와 why에 중복해서 쓰지 마세요. text는 "○○업체 재단 (2품목)"처럼 짧게.
+- "why"에는 specs에 못 담는 포인트(대상, 조건)만 짧게. 없으면 생략.
 
 받아쓰기 오류 교정 (아크릴 업계 용어 - 매우 중요):
 - 두께: "오티/오 티/OT/5티" → "5T", "삼티/3티" → "3T", "이티/2티" → "2T", "팔티" → "8T", "십티/10티" → "10T"
@@ -897,11 +926,11 @@ async function classifyText(text){
 ${store.dict.length ? '아래는 우리 회사가 실제로 쓰는 정확한 이름들입니다. 받아적힌 말 중에 발음이 비슷한 것이 있으면 반드시 이 사전의 표기로 고쳐 쓰세요:\n' + store.dict.join(', ') : '(아직 등록된 사전 없음)'}
 
 반드시 아래 JSON 형식으로만 답하세요. 다른 말, 마크다운 백틱 절대 금지.
-{"items":[{"type":"work","work_type":"재단","text":"...","why":"...","due":"오늘","priority":1},{"type":"memo","text":"...","due":"","priority":3},{"type":"ask","answer":"..."},{"type":"chat","text":"..."}]}
+{"items":[{"type":"work","work_type":"재단","text":"...","why":"...","due":"오늘","priority":1,"specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"}]},{"type":"memo","text":"...","due":"","priority":3},{"type":"update","목록":"work","번호":0,"text":"..."},{"type":"ask","answer":"..."},{"type":"chat","text":"..."}]}
 
 [현재 목록]
-남은 작업 지시: ${JSON.stringify(store.work.filter(t=>!t.done).map(t=>({일:t.text, 종류:t.work, 기한:t.due, 급함:t.priority===1, 올린사람:t.who||''})))}
-잊지 말 것: ${JSON.stringify(store.memo.filter(t=>!t.done).map(t=>({일:t.text, 기한:t.due, 올린사람:t.who||''})))}
+남은 작업 지시: ${JSON.stringify(store.work.map((t,i)=>({번호:i, 일:t.text, 종류:t.work, 기한:t.due, 급함:t.priority===1, 올린사람:t.who||'', 완료:!!t.done})).filter(t=>!t.완료))}
+잊지 말 것: ${JSON.stringify(store.memo.map((t,i)=>({번호:i, 일:t.text, 기한:t.due, 올린사람:t.who||'', 완료:!!t.done})).filter(t=>!t.완료))}
 완료한 작업 수: ${store.work.filter(t=>t.done).length + store.memo.filter(t=>t.done).length}
 
 받아적은 내용:
@@ -930,12 +959,19 @@ ${store.dict.length ? '아래는 우리 회사가 실제로 쓰는 정확한 이
 function applyItems(parsed){
   let addedWork = false;
   let askAnswer = '';
+  let updated = 0;
   (parsed.items||[]).forEach(it => {
     if (it.type === 'chat') return;
     if (it.type === 'ask'){ askAnswer = it.answer || ''; return; }
+    if (it.type === 'update'){
+      const list = it['목록'] === 'memo' ? store.memo : store.work;
+      const t = list[it['번호']];
+      if (t && it.text){ t.text = it.text; updated++; }
+      return;
+    }
     if (it.type === 'work'){
       const wt = ['재단','가공','후작업'].includes(it.work_type) ? it.work_type : '기타';
-      store.work.push({ text: it.text, why: it.why||'', due: it.due||'', priority: it.priority||3, done:false, work: wt, who: currentUser });
+      store.work.push({ text: it.text, why: it.why||'', due: it.due||'', priority: it.priority||3, done:false, work: wt, who: currentUser, specs: Array.isArray(it.specs)?it.specs:[] });
       addedWork = true;
     } else {
       store.memo.push({ text: it.text, why: it.why||'', due: it.due||'', priority: it.priority||3, done:false, who: currentUser });
@@ -948,6 +984,7 @@ function applyItems(parsed){
     document.getElementById('jarvis').classList.add('show');
     speak(askAnswer);
   }
+  if (updated && !askAnswer) speak(updated + '건 수정했어요.');
   if (addedWork && store.work.filter(t=>!t.done).length > 1) prioritizeToday(true);
 }
 
@@ -1010,6 +1047,28 @@ function prioBadge(it){
   const label = p===1 ? '급함' : p===2 ? '보통' : '여유';
   return '<span class="badge p'+p+'">'+label+'</span>';
 }
+function matClass(c){
+  if (!c) return 'sp';
+  if (c.includes('투명')) return 'sp sp-clear';
+  if (c.includes('백') || c.includes('화이트') || c.includes('흰')) return 'sp sp-white';
+  if (c.includes('흑') || c.includes('검') || c.includes('블랙')) return 'sp sp-black';
+  if (c.includes('미러') || c.includes('거울')) return 'sp sp-mirror';
+  if (c.includes('스모그') || c.includes('스모크') || c.includes('그레이') || c.includes('회')) return 'sp sp-smoke';
+  if (c.includes('갈') || c.includes('브라운')) return 'sp sp-brown';
+  return 'sp';
+}
+function specsHtml(it){
+  if (!it.specs || !it.specs.length) return '';
+  const rows = it.specs.map(s=>{
+    const parts = [];
+    if (s['두께']) parts.push('<span class="sp sp-t">'+escapeHtml(s['두께'])+'</span>');
+    if (s['색상']) parts.push('<span class="'+matClass(s['색상'])+'">'+escapeHtml(s['색상'])+'</span>');
+    if (s['사이즈']) parts.push('<span class="sp sp-size">'+escapeHtml(s['사이즈'])+'</span>');
+    if (s['수량']) parts.push('<span class="sp sp-qty">'+escapeHtml(s['수량'])+'</span>');
+    return parts.length ? '<div class="spec-row">'+parts.join('')+'</div>' : '';
+  }).filter(Boolean);
+  return rows.length ? '<div class="specs">'+rows.join('')+'</div>' : '';
+}
 function metaLine(it){
   const parts = [];
   if (it.due) parts.push('📅 ' + escapeHtml(it.due));
@@ -1019,11 +1078,12 @@ function metaLine(it){
 function itemHtml(kind, it, i, num){
   return '<div class="item '+kind+(it.done?' done':'')+'">'
     + '<button class="chk" onclick="toggleDone(\''+kind+'\','+i+')">'+(it.done?'✓':'')+'</button>'
-    + '<div class="body">'
+    + '<div class="body" onclick="editItem(\''+kind+'\','+i+')">'
     + (num?'<span class="ord">'+num+'</span>':'')
     + prioBadge(it)
     + escapeHtml(it.text)
     + (it.who ? '<span class="who-tag who-'+escapeHtml(it.who)+'">'+escapeHtml(it.who)+'</span>' : '')
+    + specsHtml(it)
     + metaLine(it)
     + '</div>'
     + '<button class="del" onclick="removeItem(\''+kind+'\','+i+')">✕</button>'
@@ -1068,6 +1128,19 @@ function render(){
     memoArea.innerHTML = sorted.map(o=>itemHtml('memo', o.it, o.i, 0)).join('');
   }
 }
+
+function editItem(kind, i){
+  const it = store[kind][i];
+  if (!it) return;
+  const v = window.prompt('내용 수정 (업체명을 앞에 붙여도 좋아요)', it.text);
+  if (v === null) return; // 취소
+  const t = v.trim();
+  if (!t) return;
+  it.text = t;
+  saveAll();
+  render();
+}
+window.editItem = editItem;
 
 function toggleDone(kind, i){
   store[kind][i].done = !store[kind][i].done;
