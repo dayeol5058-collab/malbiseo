@@ -610,7 +610,7 @@ async function callClaude(prompt){
     headers,
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 1500,
+      max_tokens: 3000,
       messages: [{ role: "user", content: prompt }]
     })
   });
@@ -621,7 +621,17 @@ async function callClaude(prompt){
     throw new Error(msg);
   }
   const raw = (data.content || []).map(c => c.text || '').join('');
-  return JSON.parse(raw.replace(/```json|```/g, '').trim());
+  let clean = raw.replace(/```json|```/g, '').trim();
+  // AI가 앞뒤에 말을 붙였어도 { } 부분만 골라내기
+  const s = clean.indexOf('{');
+  const e = clean.lastIndexOf('}');
+  if (s === -1 || e === -1) throw new Error('AI 답변에서 결과를 찾지 못함');
+  clean = clean.slice(s, e + 1);
+  try {
+    return JSON.parse(clean);
+  } catch(parseErr){
+    throw new Error('AI 답변 해석 실패 (답변이 잘렸을 수 있어요. 조금 나눠서 말해보세요)');
+  }
 }
 
 /* ---------- 말 분류 ---------- */
@@ -704,7 +714,7 @@ async function classifyText(text){
     if (addedWork && store.work.filter(t=>!t.done).length > 1) prioritizeToday(true);
   } catch(err){
     if (err.message === 'NOKEY') showError('AI 연결 실패. 위 🔑 칸에 API 키를 넣어주세요.');
-    else showError('정리 중 문제가 생겼어요. 다시 시도해주세요.');
+    else showError('정리 중 문제가 생겼어요.<br><b>원인: ' + escapeHtml(err.message) + '</b><br>다시 시도해주세요.');
     console.error(err);
   } finally {
     statusBox.classList.remove('show');
