@@ -40,7 +40,11 @@
   }
   .app{width:100%;max-width:520px;padding:24px 18px 48px;}
 
-  header{margin-bottom:20px;}
+  header{
+    margin-bottom:20px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+  }
+  .head-right{display:flex;align-items:center;gap:8px;}
   .eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;}
   h1{font-size:26px;font-weight:800;margin-top:4px;line-height:1.25;}
   .sub{font-size:14px;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
@@ -73,6 +77,18 @@
     0%{box-shadow:0 0 0 0 rgba(230,76,60,.35);}
     70%{box-shadow:0 0 0 22px rgba(230,76,60,0);}
     100%{box-shadow:0 0 0 0 rgba(230,76,60,0);}
+  }
+  .hold-btn{
+    margin-top:14px;width:100%;max-width:300px;
+    border:none;border-radius:14px;padding:14px;
+    background:#0b6b5d;color:#fff;
+    font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;
+    box-shadow:0 5px 14px rgba(11,107,93,.3);
+    transition:transform .1s ease, background .1s ease;
+  }
+  .hold-btn.holding{
+    background:#e64c3c;transform:scale(.97);
+    box-shadow:0 3px 10px rgba(230,76,60,.4);
   }
   .mic-label{margin-top:14px;font-size:15px;font-weight:600;color:var(--ink);}
   .mic-hint{margin-top:4px;font-size:12.5px;color:var(--ink-soft);}
@@ -257,7 +273,7 @@
     background:var(--card);border-radius:99px;
     padding:6px 13px;font-size:13px;font-weight:700;
     box-shadow:0 3px 10px rgba(28,60,90,.1);
-    cursor:pointer;margin-top:10px;
+    cursor:pointer;
   }
   .who-tag{
     display:inline-block;font-size:11px;font-weight:800;
@@ -267,7 +283,7 @@
   .who-보스{color:#0b5a94;}
   .who-머신{color:#0b6b5d;}
   .who-커터{color:#b3541e;}
-  .sync{font-size:11.5px;margin-top:6px;}
+  .sync{font-size:13px;}
   .sync.on{color:#10a08a;}
   .sync.off{color:#c0392b;}
   .fold-head{cursor:pointer;}
@@ -307,7 +323,6 @@
 <body>
 <div class="user-overlay" id="userOverlay">
   <h2>누구세요?</h2>
-  <p>클라로 · 세명아크릴 공용 작업판</p>
   <button class="user-btn u-boss" onclick="pickUser('보스')">👨‍✈️ 보스</button>
   <button class="user-btn u-machine" onclick="pickUser('머신')">🛠️ 머신</button>
   <button class="user-btn u-cutter" onclick="pickUser('커터')">✂️ 커터</button>
@@ -315,33 +330,32 @@
 
 <div class="app">
   <header>
-    <div class="eyebrow">SEMYUNG ACRYLIC · KLARO</div>
     <h1>클라로</h1>
-    <div class="sub">말하면 <b>작업 지시</b>와 <b>잊지 말 것</b>만 남기고, 잡담은 알아서 버립니다.</div>
-    <span class="me-chip" id="meChip" onclick="showUserPick()">👤 <span id="meName">?</span> · 바꾸기</span>
-    <div class="sync off" id="syncState">연결 확인 중...</div>
+    <div class="head-right">
+      <span class="me-chip" id="meChip" onclick="showUserPick()">👤 <span id="meName">?</span></span>
+      <span class="sync off" id="syncState">·</span>
+    </div>
   </header>
 
   <div class="mic-zone">
     <button class="mic-btn" id="micBtn" aria-label="녹음 시작">🎤</button>
-    <div class="mic-label" id="micLabel">톡 눌러 말하기 · 꾹 누른 채 말해도 돼요</div>
-    <div class="mic-hint" id="micHint">시끄러운 곳에선 폰을 입 가까이! 말 멈추면 5초 뒤 자동 정리</div>
+    <div class="mic-label" id="micLabel" style="display:none;"></div>
+    <button class="hold-btn" id="holdBtn">📻 꾹 누르고 말하기</button>
+    <div class="mic-hint" id="micHint" style="display:none;"></div>
     <div class="live" id="live"></div>
-    <div id="debugLine">상태: 대기 중</div>
+    <div id="debugLine" style="display:none;">·</div>
   </div>
 
   <div class="type-zone">
-    <label>⌨️ 직접 입력해도 돼요</label>
     <div class="type-row">
-      <input type="text" id="typeInput" placeholder="예: 오티 투명 천이백에 육백 재단하고 택배 보내야 돼">
+      <input type="text" id="typeInput" placeholder="⌨️ 직접 입력">
       <button id="typeBtn">정리</button>
     </div>
   </div>
 
   <div class="type-zone">
-    <label>📷 카톡 · 문자 · 도면 사진 접수</label>
     <div class="type-row">
-      <button id="photoBtn" style="flex:1;padding:12px;background:#0b6b5d;">📷 사진 올려서 자동 등록</button>
+      <button id="photoBtn" style="flex:1;padding:12px;background:#0b6b5d;">📷 사진 접수</button>
     </div>
     <input type="file" id="photoInput" accept="image/*" style="display:none;">
     <div id="photoPreview" style="display:none;margin-top:10px;text-align:center;">
@@ -358,12 +372,12 @@
 
   <div class="section">
     <div class="section-head"><span>🔨</span><span class="t">작업 지시</span><span class="count todo" id="cntWork">0</span><button class="sort-btn" id="sortBtn">⚡ 오늘 정리</button></div>
-    <div id="workArea"><div class="empty">재단·가공·후작업 지시가 여기 모여요.</div></div>
+    <div id="workArea"><div class="empty">없음</div></div>
   </div>
 
   <div class="section">
     <div class="section-head"><span>📋</span><span class="t">잊지 말 것</span><span class="count note" id="cntMemo">0</span></div>
-    <div id="memoArea"><div class="empty">연락, 원장·서류 보내기, 택배, 자재 주문 같은 것들이 여기 모여요.</div></div>
+    <div id="memoArea"><div class="empty">없음</div></div>
   </div>
 
   <div class="section">
@@ -374,9 +388,8 @@
     </div>
     <div class="fold-body" id="dictFoldBody">
       <div class="type-zone" style="margin-bottom:0;">
-        <label>업체명이나 자주 틀리게 적히는 말을 등록하면, 말할 때 정확한 이름으로 받아적어요 (세 명 모두 공유)</label>
         <div class="type-row">
-          <input type="text" id="dictInput" placeholder="예: 대한상사, 한빛디스플레이">
+          <input type="text" id="dictInput" placeholder="업체명 · 용어 추가">
           <button id="dictBtn">추가</button>
         </div>
         <div class="dict-chips" id="dictChips"></div>
@@ -391,7 +404,7 @@
     </div>
     <div class="fold-body" id="setFoldBody">
       <div class="type-zone" style="margin-bottom:0;">
-        <label>🔑 API 키 (한 번만 입력하면 저장돼요)</label>
+        <label>🔑 API 키</label>
         <div class="type-row">
           <input type="password" id="keyInput" placeholder="sk-ant-... 로 시작하는 키">
         </div>
@@ -401,7 +414,7 @@
 
   <div class="clear-row"><button id="clearBtn">전체 지우기</button></div>
 
-  <footer>내용은 이 폰에 자동 저장됩니다.<br>클라로 Klaro · 세명아크릴</footer>
+  <footer>Klaro</footer>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -456,7 +469,7 @@ try{
   firebase.initializeApp(firebaseConfig);
   boardRef = firebase.firestore().collection('malbiseo').doc('board');
   boardRef.onSnapshot(snap => {
-    syncState.textContent = '🟢 공용 작업판 연결됨 (실시간)';
+    syncState.textContent = '🟢';
     syncState.className = 'sync on';
     if (snap.exists){
       const d = snap.data();
@@ -468,12 +481,12 @@ try{
       updateBriefing();
     }
   }, err => {
-    syncState.textContent = '🔴 연결 안 됨 — Firestore 규칙/생성 확인 필요';
+    syncState.textContent = '🔴 연결 안 됨';
     syncState.className = 'sync off';
     console.error(err);
   });
 }catch(e){
-  syncState.textContent = '🔴 연결 실패 (인터넷 확인)';
+  syncState.textContent = '🔴';
   syncState.className = 'sync off';
 }
 
@@ -482,7 +495,7 @@ function saveAll(){
   if (boardRef){
     boardRef.set({ work: store.work, memo: store.memo, dict: store.dict, updated: Date.now() })
       .catch(err => {
-        syncState.textContent = '🔴 저장 실패 — Firestore 규칙 확인 필요';
+        syncState.textContent = '🔴 저장 실패';
         syncState.className = 'sync off';
         console.error(err);
       });
@@ -559,14 +572,17 @@ let restartCount = 0;
 let restartWindow = 0;
 let silenceTimer = null;   // 말 없으면 자동 종료
 let maxTimer = null;       // 최대 녹음 시간
-const SILENCE_SEC = 5;     // 침묵 5초면 자동 마무리
+const SILENCE_BEFORE = 12; // 말 시작 전에는 12초까지 기다림
+const SILENCE_AFTER = 5;   // 말 시작 후 침묵 5초면 자동 마무리
 const MAX_SEC = 90;        // 최대 90초
+let hasSpeech = false;     // 이번 녹음에서 말이 나왔는지
 
 function armSilenceTimer(){
   if (silenceTimer) clearTimeout(silenceTimer);
+  const sec = hasSpeech ? SILENCE_AFTER : SILENCE_BEFORE;
   silenceTimer = setTimeout(()=>{
     if (listening){ dbg('🤫 말이 없어서 자동 마무리'); requestStop(); }
-  }, SILENCE_SEC * 1000);
+  }, sec * 1000);
 }
 function clearTimers(){
   if (silenceTimer){ clearTimeout(silenceTimer); silenceTimer = null; }
@@ -589,6 +605,7 @@ if (SR) {
       else interimText += t;
     }
     dbg('🟢 목소리 인식되는 중');
+    hasSpeech = true;
     armSilenceTimer();
     live.classList.add('show');
     live.innerHTML = escapeHtml(finalText) + '<span class="interim">' + escapeHtml(interimText) + '</span>';
@@ -631,43 +648,47 @@ if (SR) {
 
 micBtn.addEventListener('contextmenu', (e) => e.preventDefault());
 
-// 짧게 톡 = 시작/종료 토글, 꾹 누른 채 말하기 = 떼면 종료 (무전기 모드)
-let pressedAt = 0;
-let wasListeningAtDown = false;
+// 🎤 버튼: 톡 눌러 시작 / 다시 톡 눌러 종료 (토글 전용)
+micBtn.addEventListener('click', () => {
+  if (!SR) {
+    showError('이 브라우저는 음성 인식을 지원하지 않아요. 아래 <b>직접 입력</b>으로 테스트해보세요.');
+    return;
+  }
+  if (!listening && !stopping) startListening();
+  else if (listening) requestStop();
+});
 
-micBtn.addEventListener('pointerdown', (e) => {
+// 📻 무전기 버튼: 꾹 누르는 동안만 듣고, 떼면 종료 (전용)
+const holdBtn = document.getElementById('holdBtn');
+holdBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+
+holdBtn.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   if (!SR) {
     showError('이 브라우저는 음성 인식을 지원하지 않아요. 아래 <b>직접 입력</b>으로 테스트해보세요.');
     return;
   }
-  pressedAt = Date.now();
-  wasListeningAtDown = listening;
-  if (!listening && !stopping) startListening();
-});
-
-micBtn.addEventListener('pointerup', (e) => {
-  e.preventDefault();
-  if (!SR) return;
-  const held = Date.now() - pressedAt;
-  if (wasListeningAtDown) {
-    // 듣는 중에 톡 누른 것 = 종료
-    if (listening) requestStop();
-  } else {
-    // 이번 누름으로 시작된 경우: 꾹(0.6초 이상) 눌렀다 뗐으면 무전기 모드 종료
-    if (held > 600 && listening) requestStop();
-    // 짧게 톡이면 계속 듣기 (다시 톡 누르면 종료)
+  if (!listening && !stopping){
+    holdBtn.classList.add('holding');
+    holdBtn.textContent = '🔴 듣는 중';
+    startListening();
   }
 });
 
-micBtn.addEventListener('pointercancel', () => {
+function holdRelease(){
+  holdBtn.classList.remove('holding');
+  holdBtn.textContent = '📻 꾹 누르고 말하기';
   if (listening) requestStop();
-});
+}
+holdBtn.addEventListener('pointerup', (e) => { e.preventDefault(); holdRelease(); });
+holdBtn.addEventListener('pointercancel', holdRelease);
+holdBtn.addEventListener('pointerleave', () => { if (holdBtn.classList.contains('holding')) holdRelease(); });
 
 function startListening(){
   hideError();
   finalText = '';
   interimText = '';
+  hasSpeech = false;
   live.innerHTML = '';
   live.classList.add('show');
   listening = true;
@@ -696,18 +717,23 @@ function finalizeRecording(){
   stopping = false;
   if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
   resetMicUI();
+  if (typeof holdRelease === 'function' && document.getElementById('holdBtn').classList.contains('holding')) holdRelease();
   let text = (finalText + ' ' + interimText).trim();
   text = text.replace(/녹음\s*시작/g, '').trim();
-  speak('녹음 끝. 정리할게요.');
-  if (text) classifyText(text);
-  else showError('들린 말이 없어요. 조금 더 크게 말하거나 직접 입력을 사용해보세요.');
+  if (text){
+    speak('녹음 끝. 정리할게요.');
+    classifyText(text);
+  } else {
+    dbg('들린 말 없음 — 조용히 종료');
+    showError('들린 말이 없어요. 📻 무전기 버튼을 꾹 누른 채 폰을 입 가까이 대고 말해보세요.');
+  }
 }
 
 function resetMicUI(){
   micBtn.classList.remove('listening');
   micBtn.textContent = '🎤';
-  micLabel.textContent = '톡 눌러 말하기 · 꾹 누른 채 말해도 돼요';
-  micHint.textContent = '시끄러운 곳에선 폰을 입 가까이! 말 멈추면 5초 뒤 자동 정리';
+  micLabel.textContent = '🎤 톡! 눌러서 시작 · 다시 톡! 눌러서 끝';
+  micHint.textContent = '시끄러운 곳에선 📻 무전기 방식 + 폰을 입 가까이!';
 }
 
 /* ---------- 직접 입력 ---------- */
@@ -1145,7 +1171,7 @@ function render(){
   document.getElementById('cntWork').textContent = workRemain;
 
   if (!store.work.length){
-    workArea.innerHTML = '<div class="empty">재단·가공·후작업 지시가 여기 모여요.</div>';
+    workArea.innerHTML = '<div class="empty">없음</div>';
   } else {
     // 순서 번호: rank(작업 순서) 기준으로 미완료 전체에 통합 번호
     const sorted = store.work.map((it,i)=>({it,i}))
@@ -1170,7 +1196,7 @@ function render(){
   document.getElementById('cntMemo').textContent = memoRemain;
 
   if (!store.memo.length){
-    memoArea.innerHTML = '<div class="empty">연락, 원장·서류 보내기, 택배, 자재 주문 같은 것들이 여기 모여요.</div>';
+    memoArea.innerHTML = '<div class="empty">없음</div>';
   } else {
     const sorted = store.memo.map((it,i)=>({it,i}))
       .sort((a,b)=>((a.it.done?1:0)-(b.it.done?1:0)) || ((a.it.priority||3)-(b.it.priority||3)));
