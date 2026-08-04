@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-title" content="클라로">
 <meta name="theme-color" content="#eef3f7">
 <link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
 <title>클라로 Klaro</title>
 <style>
   :root{
@@ -323,8 +324,8 @@
 
   <div class="mic-zone">
     <button class="mic-btn" id="micBtn" aria-label="녹음 시작">🎤</button>
-    <div class="mic-label" id="micLabel">짧게 한 번 눌러 말하기</div>
-    <div class="mic-hint" id="micHint">꾹 누르지 말고 톡! 한 번 · 끝나면 다시 톡!</div>
+    <div class="mic-label" id="micLabel">톡 눌러 말하기 · 꾹 누른 채 말해도 돼요</div>
+    <div class="mic-hint" id="micHint">시끄러운 곳에선 폰을 입 가까이! 말 멈추면 5초 뒤 자동 정리</div>
     <div class="live" id="live"></div>
     <div id="debugLine">상태: 대기 중</div>
   </div>
@@ -556,6 +557,21 @@ let finalText = '';
 let interimText = '';
 let restartCount = 0;
 let restartWindow = 0;
+let silenceTimer = null;   // 말 없으면 자동 종료
+let maxTimer = null;       // 최대 녹음 시간
+const SILENCE_SEC = 5;     // 침묵 5초면 자동 마무리
+const MAX_SEC = 90;        // 최대 90초
+
+function armSilenceTimer(){
+  if (silenceTimer) clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(()=>{
+    if (listening){ dbg('🤫 말이 없어서 자동 마무리'); requestStop(); }
+  }, SILENCE_SEC * 1000);
+}
+function clearTimers(){
+  if (silenceTimer){ clearTimeout(silenceTimer); silenceTimer = null; }
+  if (maxTimer){ clearTimeout(maxTimer); maxTimer = null; }
+}
 
 if (SR) {
   rec = new SR();
@@ -573,6 +589,7 @@ if (SR) {
       else interimText += t;
     }
     dbg('🟢 목소리 인식되는 중');
+    armSilenceTimer();
     live.classList.add('show');
     live.innerHTML = escapeHtml(finalText) + '<span class="interim">' + escapeHtml(interimText) + '</span>';
   };
@@ -580,6 +597,7 @@ if (SR) {
   rec.onerror = (e) => {
     dbg('⚠️ 오류 발생: <b>' + e.error + '</b>');
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      clearTimers();
       resetMicUI();
       listening = false;
       showError('마이크 사용이 막혀 있어요. 원인: <b>' + e.error + '</b><br>· 컴퓨터라면: 주소창 왼쪽 자물쇠 → 마이크 → 허용<br>· 아이폰이라면: 설정 → 일반 → 키보드 → "받아쓰기" 켜기 확인');
@@ -613,13 +631,37 @@ if (SR) {
 
 micBtn.addEventListener('contextmenu', (e) => e.preventDefault());
 
-micBtn.addEventListener('click', () => {
+// 짧게 톡 = 시작/종료 토글, 꾹 누른 채 말하기 = 떼면 종료 (무전기 모드)
+let pressedAt = 0;
+let wasListeningAtDown = false;
+
+micBtn.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
   if (!SR) {
     showError('이 브라우저는 음성 인식을 지원하지 않아요. 아래 <b>직접 입력</b>으로 테스트해보세요.');
     return;
   }
+  pressedAt = Date.now();
+  wasListeningAtDown = listening;
   if (!listening && !stopping) startListening();
-  else if (listening) requestStop();
+});
+
+micBtn.addEventListener('pointerup', (e) => {
+  e.preventDefault();
+  if (!SR) return;
+  const held = Date.now() - pressedAt;
+  if (wasListeningAtDown) {
+    // 듣는 중에 톡 누른 것 = 종료
+    if (listening) requestStop();
+  } else {
+    // 이번 누름으로 시작된 경우: 꾹(0.6초 이상) 눌렀다 뗐으면 무전기 모드 종료
+    if (held > 600 && listening) requestStop();
+    // 짧게 톡이면 계속 듣기 (다시 톡 누르면 종료)
+  }
+});
+
+micBtn.addEventListener('pointercancel', () => {
+  if (listening) requestStop();
 });
 
 function startListening(){
@@ -636,9 +678,12 @@ function startListening(){
   beep();
   dbg('마이크 켜는 중...');
   try { rec.start(); } catch(err){ dbg('⚠️ 시작 실패: ' + err.name); }
+  armSilenceTimer();
+  maxTimer = setTimeout(()=>{ if (listening){ dbg('⏱ 최대 시간 도달, 자동 마무리'); requestStop(); } }, MAX_SEC * 1000);
 }
 
 function requestStop(){
+  clearTimers();
   listening = false;
   stopping = true;
   micLabel.textContent = '마무리하는 중...';
@@ -661,8 +706,8 @@ function finalizeRecording(){
 function resetMicUI(){
   micBtn.classList.remove('listening');
   micBtn.textContent = '🎤';
-  micLabel.textContent = '짧게 한 번 눌러 말하기';
-  micHint.textContent = '꾹 누르지 말고 톡! 한 번 · 끝나면 다시 톡!';
+  micLabel.textContent = '톡 눌러 말하기 · 꾹 누른 채 말해도 돼요';
+  micHint.textContent = '시끄러운 곳에선 폰을 입 가까이! 말 멈추면 5초 뒤 자동 정리';
 }
 
 /* ---------- 직접 입력 ---------- */
@@ -741,31 +786,7 @@ photoInput.addEventListener('change', async ()=>{
   }
   statusText.textContent = '사진 읽는 중...';
 
-  const prompt = `당신은 아크릴 가공 공장(세명아크릴)의 공용 비서입니다. 등록하는 사람: ${currentUser}
-이 사진은 카카오톡 대화 캡처, 문자 캡처, 주문서, 또는 도면입니다. 사진 속 내용을 읽고 작업 지시와 잊지 말 것을 뽑아내세요.
-
-- 카톡/문자 캡처라면: 거래처가 요청한 주문·재단 내용을 뽑으세요. 상대방 이름/업체명이 보이면 text에 포함.
-- 도면이라면: 재질, 두께(T), 가로×세로 치수, 수량, 가공 내용(홀, 밴딩, CNC 등)을 읽으세요.
-- 인삿말, 잡담은 무시하세요.
-
-[매우 중요 - 묶기 규칙]
-사진 한 장은 보통 하나의 주문입니다. 품목이나 절단 사이즈가 여러 개여도 작업 지시를 여러 줄로 쪼개지 말고, 공정별로 하나의 작업 지시로 묶으세요.
-- text: "○○업체 재단 (2품목)" 처럼 한 줄 요약
-- 품목별 상세는 "specs" 배열에 정리 (품목마다 하나씩, 모르는 칸은 ""):
-  "specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"},{"두께":"3T","색상":"백색","사이즈":"500×400","수량":"5장"}]
-- why에는 specs에 못 담는 특이사항만 (홀 위치, 마감 지시 등)
-재단과 밴딩처럼 공정이 다르면 그때만 지시를 나누세요.
-
-분류 종류:
-1. "work" = 공장 작업. work_type: "재단"(자르기) / "가공"(밴딩,CNC,UV,홀,접착) / "후작업"(조립,검수,포장,배송준비)
-2. "memo" = 연락하기, 서류·견적 보내기, 택배, 자재 주문, 기억할 정보(가격·납기·연락처)
-- work와 memo에 "due"(기한, 없으면 "")와 "priority"(1급함/2보통/3여유), "why"(치수·조건 등) 포함.
-- 두께는 5T, 3T 형식. 치수는 1200×600 형식(mm). 숫자는 아라비아 숫자로.
-${store.dict.length ? '\n[거래처 사전] 비슷한 이름이 보이면 이 표기로: ' + store.dict.join(', ') : ''}
-
-반드시 아래 JSON으로만 답하세요. 다른 말, 백틱 금지.
-{"items":[{"type":"work","work_type":"재단","text":"...","why":"...","due":"","priority":2,"specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"}]},{"type":"memo","text":"...","due":"","priority":3}]}
-사진에서 일 관련 내용을 못 찾았으면 {"items":[]}`;
+  const prompt = photoPrompt();
 
   try{
     const parsed = await callClaudeVision(prompt, imgData);
@@ -790,6 +811,34 @@ ${store.dict.length ? '\n[거래처 사전] 비슷한 이름이 보이면 이 �
     setTimeout(()=>{ document.getElementById('photoPreview').style.display='none'; }, 4000);
   }
 });
+
+function photoPrompt(){
+  return `당신은 아크릴 가공 공장(세명아크릴)의 공용 비서입니다. 등록하는 사람: ${currentUser}
+이 사진은 카카오톡 대화 캡처, 문자 캡처, 주문서, 또는 도면입니다. 사진 속 내용을 읽고 작업 지시와 잊지 말 것을 뽑아내세요.
+
+- 카톡/문자 캡처라면: 거래처가 요청한 주문·재단 내용을 뽑으세요. 상대방 이름/업체명이 보이면 text에 포함.
+- 도면이라면: 재질, 두께(T), 가로×세로 치수, 수량, 가공 내용(홀, 밴딩, CNC 등)을 읽으세요.
+- 인삿말, 잡담은 무시하세요.
+
+[매우 중요 - 묶기 규칙]
+사진 한 장은 보통 하나의 주문입니다. 품목이나 절단 사이즈가 여러 개여도 작업 지시를 여러 줄로 쪼개지 말고, 공정별로 하나의 작업 지시로 묶으세요.
+- text: "○○업체 재단 (2품목)" 처럼 한 줄 요약
+- 품목별 상세는 "specs" 배열에 정리 (품목마다 하나씩, 모르는 칸은 ""):
+  "specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"},{"두께":"3T","색상":"백색","사이즈":"500×400","수량":"5장"}]
+- why에는 specs에 못 담는 특이사항만 (홀 위치, 마감 지시 등)
+재단과 밴딩처럼 공정이 다르면 그때만 지시를 나누세요.
+
+분류 종류:
+1. "work" = 공장 작업. work_type: "재단"(자르기) / "가공"(밴딩,CNC,UV,홀,접착) / "후작업"(조립,검수,포장,배송준비)
+2. "memo" = 연락하기, 서류·견적 보내기, 택배, 자재 주문, 기억할 정보(가격·납기·연락처)
+- work와 memo에 "due"(기한, 없으면 "")와 "priority"(1급함/2보통/3여유), "why"(치수·조건 등) 포함.
+- 두께는 5T, 3T 형식. 치수는 1200×600 형식(mm). 숫자는 아라비아 숫자로.
+${store.dict.length ? '\n[거래처 사전] 비슷한 이름이 보이면 이 표기로: ' + store.dict.join(', ') : ''}
+
+반드시 아래 JSON으로만 답하세요. 다른 말, 백틱 금지.
+{"items":[{"type":"work","work_type":"재단","text":"...","why":"...","due":"","priority":2,"specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"}]},{"type":"memo","text":"...","due":"","priority":3}]}
+사진에서 일 관련 내용을 못 찾았으면 {"items":[]}`;
+}
 
 function shrinkImage(file, maxSize){
   return new Promise((resolve, reject)=>{
@@ -1218,6 +1267,62 @@ function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt
 loadAll();
 render();
 renderDict();
+
+/* ---------- 공유 접수 (안드로이드: 공유 → 클라로) ---------- */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+(async function handleShared(){
+  const params = new URLSearchParams(location.search);
+  if (params.get('shared') !== '1') return;
+  history.replaceState(null, '', location.pathname); // 주소 정리
+  try{
+    const cache = await caches.open('klaro-share');
+    const imgRes = await cache.match('shared-image');
+    const txtRes = await cache.match('shared-text');
+    const sharedText = txtRes ? (await txtRes.text()).trim() : '';
+    if (imgRes){
+      const blob = await imgRes.blob();
+      await cache.delete('shared-image');
+      await cache.delete('shared-text');
+      dbg('📥 공유받은 사진 접수 중...');
+      processSharedImage(blob);
+    } else if (sharedText){
+      await cache.delete('shared-text');
+      dbg('📥 공유받은 글 접수 중...');
+      classifyText(sharedText);
+    }
+  }catch(err){ console.error(err); }
+})();
+
+async function processSharedImage(blob){
+  hideError();
+  statusBox.classList.add('show');
+  statusText.textContent = '사진 준비 중...';
+  let imgData;
+  try{
+    imgData = await shrinkImage(blob, 1100);
+  }catch(prepErr){
+    showError('공유받은 사진을 읽지 못했어요: ' + escapeHtml(prepErr.message));
+    statusBox.classList.remove('show');
+    return;
+  }
+  statusText.textContent = '사진 읽는 중...';
+  const prompt = photoPrompt();
+  try{
+    const parsed = await callClaudeVision(prompt, imgData);
+    if (!parsed.items || !parsed.items.length){
+      showError('사진에서 작업 내용을 찾지 못했어요.');
+    } else {
+      applyItems(parsed);
+      speak('공유받은 사진에서 ' + parsed.items.length + '건 등록했어요.');
+    }
+  }catch(err){
+    showError('사진 읽기 실패: ' + escapeHtml(err.message));
+  }finally{
+    statusBox.classList.remove('show');
+  }
+}
 // API 키가 아직 없으면 설정을 펼쳐서 보여주기
 if (!document.getElementById('keyInput').value.trim()){
   document.getElementById('setFoldHead').classList.add('open');
