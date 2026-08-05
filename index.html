@@ -568,7 +568,9 @@ let stopping = false;
 let stopTimer = null;
 let finalText = '';
 let interimText = '';
-let altNotes = [];  // 인식 후보 (교정용)
+let altNotes = [];      // 인식 후보 (교정용)
+let sessionBase = '';   // 자동 재연결 이전까지 확정된 말
+let sessionAltBase = []; // 이전 세션의 후보들
 let restartCount = 0;
 let restartWindow = 0;
 let silenceTimer = null;   // 말 없으면 자동 종료
@@ -600,21 +602,33 @@ if (SR) {
   rec.onstart = () => { dbg('🔴 마이크 켜짐! 말씀하세요'); };
 
   rec.onresult = (e) => {
-    interimText = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
+    // 갤럭시(안드로이드)는 이미 보낸 말을 통째로 다시 보내는 버릇이 있어서,
+    // 이어붙이지 않고 매번 처음부터 전체를 다시 조립한다 (중복 방지)
+    let curFinal = '';
+    let curInterim = '';
+    const curAlts = [];
+    for (let i = 0; i < e.results.length; i++) {
       const t = e.results[i][0].transcript;
       if (e.results[i].isFinal) {
-        finalText += t + ' ';
-        // 1등 외의 인식 후보들도 모아두기 (AI가 문맥으로 고르게)
+        curFinal += t + ' ';
+        const conf = e.results[i][0].confidence;
         const alts = [];
         for (let a = 1; a < e.results[i].length; a++) {
           const at = (e.results[i][a].transcript || '').trim();
           if (at && at !== t.trim()) alts.push(at);
         }
-        if (alts.length) altNotes.push({ 들린말: t.trim(), 후보: alts });
+        if (alts.length || (conf !== undefined && conf < 0.75)) {
+          const note = { 들린말: t.trim() };
+          if (alts.length) note['후보'] = alts;
+          if (conf !== undefined && conf < 0.75) note['자신없음'] = true;
+          curAlts.push(note);
+        }
       }
-      else interimText += t;
+      else curInterim += t;
     }
+    finalText = sessionBase + curFinal;
+    interimText = curInterim;
+    altNotes = sessionAltBase.concat(curAlts);
     dbg('🟢 목소리 인식되는 중');
     hasSpeech = true;
     armSilenceTimer();
@@ -648,9 +662,11 @@ if (SR) {
         return;
       }
       dbg('🔄 잠깐 끊김, 다시 연결 중...');
+      sessionBase = finalText;      // 여기까지는 확정
+      sessionAltBase = altNotes.slice();
       setTimeout(() => {
         if (listening && !stopping) { try { rec.start(); } catch(_){} }
-      }, 250);
+      }, 150);
     } else {
       dbg('마이크 꺼짐');
     }
@@ -700,6 +716,8 @@ function startListening(){
   finalText = '';
   interimText = '';
   altNotes = [];
+  sessionBase = '';
+  sessionAltBase = [];
   hasSpeech = false;
   live.innerHTML = '';
   live.classList.add('show');
@@ -732,6 +750,7 @@ function finalizeRecording(){
   if (typeof holdRelease === 'function' && document.getElementById('holdBtn').classList.contains('holding')) holdRelease();
   let text = (finalText + ' ' + interimText).trim();
   text = text.replace(/녹음\s*시작/g, '').trim();
+  text = collapseRepeats(text); // 반복 구절 압축 (갤럭시 2중 방어)
   // 교정 규칙 사전("잘못>올바름")을 먼저 무조건 적용
   store.dict.forEach(d=>{
     const p = d.split('>');
@@ -746,6 +765,18 @@ function finalizeRecording(){
     dbg('들린 말 없음 — 조용히 종료');
     showError('들린 말이 없어요. 📻 무전기 버튼을 꾹 누른 채 폰을 입 가까이 대고 말해보세요.');
   }
+}
+
+// 같은 구절이 연달아 반복되면 한 번으로 압축 (예: "5T 재단 5T 재단 5T 재단" → "5T 재단")
+function collapseRepeats(t){
+  let prev = '';
+  let cur = t + ' ';
+  while (cur !== prev){
+    prev = cur;
+    cur = cur.replace(/((?:\S+\s+){2,6})\1+/g, '$1');  // 2~6단어 구절 반복 압축
+    cur = cur.replace(/(\S+\s+)\1{2,}/g, '$1');         // 한 단어 3회 이상 반복 압축
+  }
+  return cur.replace(/\s{2,}/g, ' ').trim();
 }
 
 function resetMicUI(){
@@ -1009,7 +1040,13 @@ async function classifyText(text, alts){
 
 받아쓰기 오류 교정 (아크릴 업계 용어 - 매우 중요):
 - 이 말은 아크릴 가공 공장에서 나온 말입니다. 문맥상 어색한 단어는 공장에서 쓸 법한 비슷한 발음의 단어로 적극 교정하세요. (예: "제단"→"재단", "밴딩"과 "배딩"→"밴딩", "포맥스"류 오기 교정)
-- 아래 [받아쓰기 후보]가 있으면, 들린말이 어색할 때 후보 중 문맥에 맞는 것으로 바꿔 쓰세요.
+- 아래 [받아쓰기 후보]가 있으면 참고하되, "자신없음" 표시가 있는 구간은 받아쓰기가 스스로 확신하지 못한 부분이니 문맥과 후보를 근거로 특히 적극적으로 교정하세요.
+- 한국어 받아쓰기 특유의 오류를 교정하세요:
+  · 숫자가 쪼개짐: "천 이백" → "1200", "열 장" → "10장", "다섯 개" → "5개"
+  · 단위 오인: "티"/"미리"/"밀리" → T/mm 문맥에 맞게, "바이" → "×" (예: "천이백 바이 육백" → "1200×600")
+  · 비슷한 발음 혼동: 재단/제단/재판, 절곡/절곡기, 납품/납부, 견적/전적
+  · 군더더기 제거: "음", "어", "그", "저기", "이제", "막" 같은 추임새는 빼고 정리
+  · 같은 말을 더듬어 반복한 것은 한 번으로 정리
 - 두께: "오티/오 티/OT/5티" → "5T", "삼티/3티" → "3T", "이티/2티" → "2T", "팔티" → "8T", "십티/10티" → "10T"
 - 치수: "천이백에 육백" → "1200×600", "천에 이천" → "1000×2000" (mm 단위)
 - 수량: "열 장" → "10장", "다섯 장" → "5장"
