@@ -341,6 +341,7 @@
     <button class="mic-btn" id="micBtn" aria-label="녹음 시작">🎤</button>
     <div class="mic-label" id="micLabel" style="display:none;"></div>
     <button class="hold-btn" id="holdBtn">📻 꾹 누르고 말하기</button>
+    <div id="earBadge" style="display:none;margin-top:8px;font-size:12px;font-weight:700;color:#0b6b5d;">🎧 AI 귀 사용 중</div>
     <div class="mic-hint" id="micHint" style="display:none;"></div>
     <div class="live" id="live"></div>
     <div id="debugLine" style="display:none;">·</div>
@@ -404,9 +405,13 @@
     </div>
     <div class="fold-body" id="setFoldBody">
       <div class="type-zone" style="margin-bottom:0;">
-        <label>🔑 API 키</label>
+        <label>🔑 API 키 (Claude)</label>
         <div class="type-row">
-          <input type="password" id="keyInput" placeholder="sk-ant-... 로 시작하는 키">
+          <input type="password" id="keyInput" placeholder="sk-ant-...">
+        </div>
+        <label style="margin-top:12px;">🎧 음성 AI 키 (OpenAI · 넣으면 AI 귀로 전환)</label>
+        <div class="type-row">
+          <input type="password" id="okeyInput" placeholder="sk-proj-... 또는 sk-...">
         </div>
       </div>
     </div>
@@ -512,6 +517,8 @@ function loadAll(){
     }
     const k = localStorage.getItem('mb_key');
     if (k) document.getElementById('keyInput').value = k;
+    const ok = localStorage.getItem('mb_okey');
+    if (ok) document.getElementById('okeyInput').value = ok;
     const u = localStorage.getItem('mb_user');
     if (u){ currentUser = u; document.getElementById('meName').textContent = u; }
     else { showUserPick(); }
@@ -519,6 +526,10 @@ function loadAll(){
 }
 document.getElementById('keyInput').addEventListener('change', function(){
   try{ localStorage.setItem('mb_key', this.value.trim()); }catch(_){}
+});
+document.getElementById('okeyInput').addEventListener('change', function(){
+  try{ localStorage.setItem('mb_okey', this.value.trim()); }catch(_){}
+  updateEarBadge();
 });
 
 /* ---------- 상태 진단 표시 ---------- */
@@ -584,7 +595,7 @@ function armSilenceTimer(){
   if (silenceTimer) clearTimeout(silenceTimer);
   const sec = hasSpeech ? SILENCE_AFTER : SILENCE_BEFORE;
   silenceTimer = setTimeout(()=>{
-    if (listening){ dbg('🤫 말이 없어서 자동 마무리'); requestStop(); }
+    if (listening){ dbg('🤫 말이 없어서 자동 마무리'); wsStop(); }
   }, sec * 1000);
 }
 function clearTimers(){
@@ -607,18 +618,23 @@ if (SR) {
     let curFinal = '';
     let curInterim = '';
     const curAlts = [];
+    let lastSeg = '';
     for (let i = 0; i < e.results.length; i++) {
-      const t = e.results[i][0].transcript;
+      const t = (e.results[i][0].transcript || '');
       if (e.results[i].isFinal) {
-        curFinal += t + ' ';
+        const seg = t.trim();
+        // 갤럭시가 같은 조각을 연달아 여러 번 보내면 첫 번째만 받기
+        if (!seg || seg === lastSeg) continue;
+        lastSeg = seg;
+        curFinal += seg + ' ';
         const conf = e.results[i][0].confidence;
         const alts = [];
         for (let a = 1; a < e.results[i].length; a++) {
           const at = (e.results[i][a].transcript || '').trim();
-          if (at && at !== t.trim()) alts.push(at);
+          if (at && at !== seg) alts.push(at);
         }
         if (alts.length || (conf !== undefined && conf < 0.75)) {
-          const note = { 들린말: t.trim() };
+          const note = { 들린말: seg };
           if (alts.length) note['후보'] = alts;
           if (conf !== undefined && conf < 0.75) note['자신없음'] = true;
           curAlts.push(note);
@@ -626,14 +642,15 @@ if (SR) {
       }
       else curInterim += t;
     }
-    finalText = sessionBase + curFinal;
+    // 재연결 직후, 새 세션이 앞 세션 끝부분을 또 보내면 겹치는 만큼 잘라내기
+    finalText = sessionBase + trimOverlap(sessionBase, curFinal);
     interimText = curInterim;
     altNotes = sessionAltBase.concat(curAlts);
     dbg('🟢 목소리 인식되는 중');
     hasSpeech = true;
     armSilenceTimer();
     live.classList.add('show');
-    live.innerHTML = escapeHtml(finalText) + '<span class="interim">' + escapeHtml(interimText) + '</span>';
+    live.innerHTML = escapeHtml(collapseRepeats(finalText)) + ' <span class="interim">' + escapeHtml(interimText) + '</span>';
   };
 
   rec.onerror = (e) => {
@@ -675,10 +692,136 @@ if (SR) {
 
 micBtn.addEventListener('contextmenu', (e) => e.preventDefault());
 
+/* ---------- AI 귀 (녹음 → Whisper) ---------- */
+function okey(){ return document.getElementById('okeyInput').value.trim(); }
+function aiEar(){ return !!okey(); }
+
+let mediaRec = null, mediaChunks = [], mediaStream = null, recTick = null, recStartAt = 0, aiMaxTimer = null;
+
+async function aiStart(){
+  hideError();
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+  }catch(e){
+    showError('마이크 권한이 필요해요. 브라우저에서 마이크를 허용해주세요.');
+    return;
+  }
+  mediaChunks = [];
+  let mime = '';
+  if (window.MediaRecorder){
+    if (MediaRecorder.isTypeSupported('audio/webm')) mime = 'audio/webm';
+    else if (MediaRecorder.isTypeSupported('audio/mp4')) mime = 'audio/mp4';
+  } else {
+    showError('이 브라우저는 녹음을 지원하지 않아요.');
+    return;
+  }
+  try{
+    mediaRec = mime ? new MediaRecorder(mediaStream, { mimeType: mime }) : new MediaRecorder(mediaStream);
+  }catch(e){
+    mediaRec = new MediaRecorder(mediaStream);
+  }
+  mediaRec.ondataavailable = ev => { if (ev.data && ev.data.size) mediaChunks.push(ev.data); };
+  mediaRec.onstop = aiFinish;
+  mediaRec.start();
+  listening = true;
+  recStartAt = Date.now();
+  micBtn.classList.add('listening');
+  micBtn.textContent = '⏹';
+  beep();
+  live.classList.add('show');
+  live.innerHTML = '🎧 AI 귀로 듣는 중... <span class="interim">0초</span>';
+  recTick = setInterval(()=>{
+    const s = Math.round((Date.now()-recStartAt)/1000);
+    live.innerHTML = '🎧 AI 귀로 듣는 중... <span class="interim">' + s + '초</span>';
+  }, 1000);
+  aiMaxTimer = setTimeout(()=>{ if (listening) aiStop(); }, MAX_SEC * 1000);
+}
+
+function aiStop(){
+  if (!mediaRec || !listening) return;
+  listening = false;
+  if (recTick){ clearInterval(recTick); recTick = null; }
+  if (aiMaxTimer){ clearTimeout(aiMaxTimer); aiMaxTimer = null; }
+  try{ mediaRec.stop(); }catch(_){}
+}
+
+async function aiFinish(){
+  try{ mediaStream && mediaStream.getTracks().forEach(t=>t.stop()); }catch(_){}
+  resetMicUI();
+  if (document.getElementById('holdBtn').classList.contains('holding')){
+    holdBtn.classList.remove('holding');
+    holdBtn.textContent = '📻 꾹 누르고 말하기';
+  }
+  const blob = new Blob(mediaChunks, { type: (mediaRec && mediaRec.mimeType) || 'audio/webm' });
+  if (blob.size < 2000){
+    live.classList.remove('show');
+    showError('녹음이 너무 짧아요. 다시 시도해주세요.');
+    return;
+  }
+  speak('녹음 끝. 정리할게요.');
+  statusBox.classList.add('show');
+  statusText.textContent = 'AI가 받아적는 중...';
+  try{
+    const fd = new FormData();
+    const ext = ((mediaRec && mediaRec.mimeType) || '').includes('mp4') ? 'm4a' : 'webm';
+    fd.append('file', blob, 'voice.' + ext);
+    fd.append('model', 'whisper-1');
+    fd.append('language', 'ko');
+    // 업계 용어 + 사전을 힌트로 줘서 정확도 올리기
+    const vocab = ['아크릴','재단','밴딩','절곡','CNC','UV인쇄','접착','포맥스','MC나일론','POM','5T','3T','2T','8T','10T','견적','납품','원장','거래처']
+      .concat(store.dict.map(d=>d.split('>').pop().trim()));
+    fd.append('prompt', '아크릴 가공 공장 대화. 용어: ' + vocab.join(', '));
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + okey() },
+      body: fd
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || '음성 AI 오류');
+    let text = (data.text || '').trim();
+    if (!text){
+      live.classList.remove('show');
+      showError('들린 말이 없어요.');
+      statusBox.classList.remove('show');
+      return;
+    }
+    // 교정 규칙 사전 적용
+    store.dict.forEach(d=>{
+      const p = d.split('>');
+      if (p.length === 2 && p[0].trim() && p[1].trim()){
+        text = text.split(p[0].trim()).join(p[1].trim());
+      }
+    });
+    live.innerHTML = escapeHtml(text);
+    statusBox.classList.remove('show');
+    classifyText(text);
+  }catch(err){
+    statusBox.classList.remove('show');
+    live.classList.remove('show');
+    if (String(err.message).toLowerCase().includes('incorrect api key') || String(err.message).toLowerCase().includes('invalid')){
+      showError('음성 AI 키가 잘못됐어요. ⚙️ 설정의 🎧 키를 확인해주세요.');
+    } else {
+      showError('받아적기 실패: ' + escapeHtml(err.message));
+    }
+  }
+}
+
+/* ---------- 엔진 분배기: 키 있으면 AI 귀, 없으면 크롬 귀 ---------- */
+function startListening(){
+  if (aiEar()) aiStart();
+  else wsStart();
+}
+function requestStop(){
+  if (aiEar()) aiStop();
+  else wsStop();
+}
+
 // 🎤 버튼: 톡 눌러 시작 / 다시 톡 눌러 종료 (토글 전용)
 micBtn.addEventListener('click', () => {
-  if (!SR) {
-    showError('이 브라우저는 음성 인식을 지원하지 않아요. 아래 <b>직접 입력</b>으로 테스트해보세요.');
+  if (!SR && !aiEar()) {
+    showError('이 브라우저는 음성 인식을 지원하지 않아요. ⚙️ 설정에 🎧 음성 AI 키를 넣으면 사용할 수 있어요.');
     return;
   }
   if (!listening && !stopping) startListening();
@@ -691,8 +834,8 @@ holdBtn.addEventListener('contextmenu', (e) => e.preventDefault());
 
 holdBtn.addEventListener('pointerdown', (e) => {
   e.preventDefault();
-  if (!SR) {
-    showError('이 브라우저는 음성 인식을 지원하지 않아요. 아래 <b>직접 입력</b>으로 테스트해보세요.');
+  if (!SR && !aiEar()) {
+    showError('이 브라우저는 음성 인식을 지원하지 않아요. ⚙️ 설정에 🎧 음성 AI 키를 넣으면 사용할 수 있어요.');
     return;
   }
   if (!listening && !stopping){
@@ -711,7 +854,7 @@ holdBtn.addEventListener('pointerup', (e) => { e.preventDefault(); holdRelease()
 holdBtn.addEventListener('pointercancel', holdRelease);
 holdBtn.addEventListener('pointerleave', () => { if (holdBtn.classList.contains('holding')) holdRelease(); });
 
-function startListening(){
+function wsStart(){
   hideError();
   finalText = '';
   interimText = '';
@@ -730,10 +873,10 @@ function startListening(){
   dbg('마이크 켜는 중...');
   try { rec.start(); } catch(err){ dbg('⚠️ 시작 실패: ' + err.name); }
   armSilenceTimer();
-  maxTimer = setTimeout(()=>{ if (listening){ dbg('⏱ 최대 시간 도달, 자동 마무리'); requestStop(); } }, MAX_SEC * 1000);
+  maxTimer = setTimeout(()=>{ if (listening){ dbg('⏱ 최대 시간 도달, 자동 마무리'); wsStop(); } }, MAX_SEC * 1000);
 }
 
-function requestStop(){
+function wsStop(){
   clearTimers();
   listening = false;
   stopping = true;
@@ -765,6 +908,20 @@ function finalizeRecording(){
     dbg('들린 말 없음 — 조용히 종료');
     showError('들린 말이 없어요. 📻 무전기 버튼을 꾹 누른 채 폰을 입 가까이 대고 말해보세요.');
   }
+}
+
+// 앞말(base)의 끝과 새말(add)의 시작이 겹치면 새말에서 겹친 부분 제거
+function trimOverlap(base, add){
+  const b = base.trim();
+  const a = add.trim();
+  if (!b || !a) return add;
+  const max = Math.min(b.length, a.length, 120);
+  for (let len = max; len >= 4; len--){
+    if (b.slice(-len) === a.slice(0, len)){
+      return a.slice(len).trim() ? a.slice(len).replace(/^\s+/,'') + ' ' : '';
+    }
+  }
+  return add;
 }
 
 // 같은 구절이 연달아 반복되면 한 번으로 압축 (예: "5T 재단 5T 재단 5T 재단" → "5T 재단")
@@ -1349,9 +1506,14 @@ function showError(html){ errorBox.innerHTML = html; errorBox.classList.add('sho
 function hideError(){ errorBox.classList.remove('show'); }
 function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+function updateEarBadge(){
+  document.getElementById('earBadge').style.display = aiEar() ? 'block' : 'none';
+}
+
 loadAll();
 render();
 renderDict();
+updateEarBadge();
 
 /* ---------- 공유 접수 (안드로이드: 공유 → 클라로) ---------- */
 if ('serviceWorker' in navigator) {
