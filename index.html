@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="클라로">
+<meta name="theme-color" content="#eef3f7">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+<title>클라로 Klaro</title>
+<style>
+  :root{
+    --ink:#1c2733;
+    --ink-soft:#5b6b7c;
+    --bg:#eef3f7;
+    --card:#ffffff;
+    --accent:#1273b8;
+    --accent-deep:#0b5a94;
+    --todo:#1273b8;
+    --todo-bg:#e7f2fb;
+    --note:#b07a10;
+    --note-bg:#fdf3dd;
+    --danger:#c0392b;
+    --radius:18px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  button,.mic-zone,.section-head,header,.grp-head{
+    -webkit-user-select:none;user-select:none;
+    -webkit-touch-callout:none;
+    touch-action:manipulation;
+  }
+  html,body{height:100%;}
+  body{
+    font-family:"Apple SD Gothic Neo","Pretendard","Noto Sans KR",-apple-system,sans-serif;
+    background:linear-gradient(165deg,#f4f8fb 0%,#e6eef6 55%,#dfeaf3 100%);
+    color:var(--ink);
+    display:flex;justify-content:center;
+    min-height:100%;
+  }
+  .app{width:100%;max-width:520px;padding:24px 18px 48px;}
+
+  header{
+    margin-bottom:20px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+  }
+  .head-right{display:flex;align-items:center;gap:8px;}
+  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;}
+  h1{font-size:26px;font-weight:800;margin-top:4px;line-height:1.25;}
+  .sub{font-size:14px;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
+
+  .mic-zone{
+    background:rgba(255,255,255,.72);
+    backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.9);
+    border-radius:var(--radius);
+    padding:26px 20px 22px;
+    text-align:center;
+    box-shadow:0 8px 28px rgba(28,60,90,.10);
+    margin-bottom:16px;
+  }
+  .mic-btn{
+    width:110px;height:110px;border-radius:50%;
+    border:none;cursor:pointer;
+    background:radial-gradient(circle at 32% 28%, #3f9be0, var(--accent) 60%, var(--accent-deep));
+    color:#fff;font-size:42px;
+    box-shadow:0 10px 24px rgba(18,115,184,.38);
+    transition:transform .15s ease;
+  }
+  .mic-btn:active{transform:scale(.94);}
+  .mic-btn.listening{
+    background:radial-gradient(circle at 32% 28%, #ff7a6b, #e64c3c 60%, #b93325);
+    box-shadow:0 10px 24px rgba(230,76,60,.4);
+    animation:pulse 1.4s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(230,76,60,.35);}
+    70%{box-shadow:0 0 0 22px rgba(230,76,60,0);}
+    100%{box-shadow:0 0 0 0 rgba(230,76,60,0);}
+  }
+  .hold-btn{
+    margin-top:14px;width:100%;max-width:300px;
+    border:none;border-radius:14px;padding:14px;
+    background:#0b6b5d;color:#fff;
+    font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;
+    box-shadow:0 5px 14px rgba(11,107,93,.3);
+    transition:transform .1s ease, background .1s ease;
+  }
+  .hold-btn.holding{
+    background:#e64c3c;transform:scale(.97);
+    box-shadow:0 3px 10px rgba(230,76,60,.4);
+  }
+  .mic-label{margin-top:14px;font-size:15px;font-weight:600;color:var(--ink);}
+  .mic-hint{margin-top:4px;font-size:12.5px;color:var(--ink-soft);}
+
+  .live{
+    margin-top:16px;min-height:52px;
+    background:#f5f9fc;border-radius:12px;
+    padding:12px 14px;font-size:15px;line-height:1.55;
+    color:var(--ink);text-align:left;
+    display:none;
+  }
+  .live.show{display:block;}
+  .live .interim{color:#93a3b3;}
+  #debugLine{margin-top:10px;font-size:12px;color:#8a97a5;text-align:left;line-height:1.5;background:#f5f9fc;border-radius:10px;padding:8px 12px;}
+
+  .type-zone{
+    background:var(--card);border-radius:var(--radius);
+    padding:14px;box-shadow:0 4px 16px rgba(28,60,90,.07);
+    margin-bottom:14px;
+  }
+  .type-zone label{font-size:12.5px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:8px;}
+  .type-row{display:flex;gap:8px;}
+  .type-row input{
+    flex:1;border:1.5px solid #dde6ee;border-radius:10px;
+    padding:11px 12px;font-size:15px;font-family:inherit;outline:none;min-width:0;
+  }
+  .type-row input:focus{border-color:var(--accent);}
+  .type-row button{
+    border:none;border-radius:10px;padding:0 18px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;
+    cursor:pointer;font-family:inherit;
+  }
+  .type-row button:disabled{opacity:.5;}
+
+  .status{
+    display:none;align-items:center;gap:10px;
+    font-size:14px;color:var(--ink-soft);
+    margin-bottom:16px;padding:12px 14px;
+    background:var(--card);border-radius:12px;
+  }
+  .status.show{display:flex;}
+  .spinner{
+    width:16px;height:16px;border-radius:50%;
+    border:2.5px solid #d5e2ec;border-top-color:var(--accent);
+    animation:spin .8s linear infinite;flex-shrink:0;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .error-box{
+    display:none;font-size:13.5px;line-height:1.55;color:#8a3a30;
+    background:#fdecea;border-radius:12px;padding:12px 14px;margin-bottom:16px;
+  }
+  .error-box.show{display:block;}
+
+  .section{margin-bottom:20px;}
+  .section-head{
+    display:flex;align-items:center;gap:8px;margin-bottom:10px;
+  }
+  .section-head .t{font-size:16px;font-weight:800;}
+  .count{
+    font-size:12px;font-weight:700;color:#fff;
+    border-radius:99px;padding:2px 9px;min-width:24px;text-align:center;
+  }
+  .count.todo{background:var(--todo);}
+  .count.note{background:var(--note);}
+  .sort-btn{
+    border:none;border-radius:99px;padding:5px 13px;margin-left:auto;
+    background:var(--accent);color:#fff;font-size:12.5px;font-weight:700;
+    cursor:pointer;font-family:inherit;
+  }
+  .sort-btn:disabled{opacity:.5;}
+  .empty{font-size:13.5px;color:#9aa8b6;padding:6px 2px;}
+
+  .grp-head{
+    display:flex;align-items:center;gap:6px;
+    font-size:13.5px;font-weight:800;color:var(--ink-soft);
+    margin:12px 2px 7px;
+  }
+  .grp-head .line{flex:1;height:1px;background:#d8e2ea;}
+
+  .item{
+    border-radius:14px;padding:13px 15px;margin-bottom:8px;
+    font-size:15px;line-height:1.5;
+    display:flex;gap:10px;align-items:flex-start;
+    animation:slidein .3s ease;
+  }
+  @keyframes slidein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  .item .mark{flex-shrink:0;font-size:16px;margin-top:1px;}
+  .item .body{flex:1;cursor:pointer;}
+  .item .why{font-size:12.5px;margin-top:3px;opacity:.75;}
+  .item.work{background:var(--todo-bg);color:#0d4a77;}
+  .item.memo{background:var(--note-bg);color:#7a5408;}
+  .ord{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:20px;height:20px;border-radius:50%;
+    background:var(--todo);color:#fff;
+    font-size:11.5px;font-weight:800;margin-right:6px;vertical-align:-3px;
+  }
+  .badge{
+    display:inline-block;font-size:11px;font-weight:800;
+    border-radius:99px;padding:2px 8px;margin-right:5px;vertical-align:1px;
+  }
+  .badge.p1{background:#fde3e0;color:#c0392b;}
+  .badge.p2{background:#fdf3dd;color:#b07a10;}
+  .badge.p3{background:#eef1f4;color:#7c8794;}
+  .chk{
+    flex-shrink:0;width:26px;height:26px;border-radius:50%;
+    border:2.5px solid #7fb3dd;background:#fff;
+    cursor:pointer;font-size:15px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;margin-top:-1px;
+  }
+  .item.memo .chk{border-color:#dcae4a;}
+  .item.done{opacity:.55;}
+  .item.done .chk{background:var(--todo);border-color:var(--todo);color:#fff;}
+  .item.memo.done .chk{background:var(--note);border-color:var(--note);}
+  .item.done .body{text-decoration:line-through;}
+  .specs{margin-top:6px;display:flex;flex-direction:column;gap:4px;}
+  .spec-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+  .sp{
+    display:inline-block;font-size:12px;font-weight:800;
+    border-radius:7px;padding:2.5px 8px;line-height:1.3;
+    background:#fff;border:1.5px solid #d5e2ec;color:#33566f;
+  }
+  .sp-t{background:#12365c;border-color:#12365c;color:#fff;}
+  .sp-size{font-variant-numeric:tabular-nums;letter-spacing:.02em;}
+  .sp-qty{background:#e7f2fb;border-color:#b7d7ee;color:#0b5a94;}
+  .sp-clear{background:rgba(180,220,245,.35);border:1.5px dashed #8fbcd9;color:#33566f;}
+  .sp-white{background:#fff;border-color:#c9d4dd;color:#4a5a68;}
+  .sp-black{background:#23292f;border-color:#23292f;color:#fff;}
+  .sp-mirror{background:linear-gradient(135deg,#e8ecf1,#b9c3cd,#eef2f6);border-color:#aeb9c4;color:#3d4a56;}
+  .sp-smoke{background:#6d7680;border-color:#6d7680;color:#fff;}
+  .sp-brown{background:#8a5a2b;border-color:#8a5a2b;color:#fff;}
+  .item button.del{
+    border:none;background:none;color:inherit;opacity:.4;
+    font-size:15px;cursor:pointer;padding:2px;flex-shrink:0;
+  }
+
+  .jarvis{
+    display:none;
+    background:linear-gradient(135deg,#12365c,#1273b8);
+    color:#fff;border-radius:var(--radius);
+    padding:16px 18px;margin-bottom:16px;
+    font-size:15px;line-height:1.6;
+    box-shadow:0 8px 24px rgba(18,115,184,.3);
+    animation:slidein .3s ease;
+  }
+  .jarvis.show{display:block;}
+  .jarvis .jtitle{font-size:12px;font-weight:800;letter-spacing:.1em;opacity:.75;margin-bottom:6px;}
+  .brief{
+    display:none;
+    background:#fff8e8;border:1.5px solid #f0d9a0;
+    border-radius:14px;padding:12px 14px;margin-bottom:16px;
+    font-size:14px;line-height:1.55;color:#7a5408;
+  }
+  .brief.show{display:flex;align-items:center;gap:10px;}
+  .brief .btext{flex:1;}
+  .brief button{
+    border:none;border-radius:99px;padding:7px 14px;
+    background:var(--note);color:#fff;font-size:13px;font-weight:700;
+    cursor:pointer;font-family:inherit;flex-shrink:0;
+  }
+  .user-overlay{
+    position:fixed;inset:0;z-index:50;
+    background:linear-gradient(165deg,#f4f8fb,#dfeaf3);
+    display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    padding:30px;
+  }
+  .user-overlay.show{display:flex;}
+  .user-overlay h2{font-size:22px;font-weight:800;margin-bottom:8px;}
+  .user-overlay p{font-size:14px;color:var(--ink-soft);margin-bottom:10px;}
+  .user-btn{
+    width:100%;max-width:300px;
+    border:none;border-radius:16px;padding:18px;
+    font-size:18px;font-weight:800;font-family:inherit;cursor:pointer;
+    color:#fff;box-shadow:0 6px 18px rgba(28,60,90,.18);
+  }
+  .user-btn.u-boss{background:linear-gradient(135deg,#12365c,#1273b8);}
+  .user-btn.u-machine{background:linear-gradient(135deg,#0b6b5d,#10a08a);}
+  .user-btn.u-cutter{background:linear-gradient(135deg,#b3541e,#e8842f);}
+  .me-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--card);border-radius:99px;
+    padding:6px 13px;font-size:13px;font-weight:700;
+    box-shadow:0 3px 10px rgba(28,60,90,.1);
+    cursor:pointer;
+  }
+  .who-tag{
+    display:inline-block;font-size:11px;font-weight:800;
+    border-radius:99px;padding:2px 8px;margin-left:6px;vertical-align:1px;
+    background:rgba(255,255,255,.6);
+  }
+  .who-보스{color:#0b5a94;}
+  .who-머신{color:#0b6b5d;}
+  .who-커터{color:#b3541e;}
+  .sync{font-size:13px;}
+  .sync.on{color:#10a08a;}
+  .sync.off{color:#c0392b;}
+  .fold-head{cursor:pointer;}
+  .fold-arrow{
+    margin-left:auto;font-size:13px;color:var(--ink-soft);
+    transition:transform .2s ease;
+  }
+  .fold-head.open .fold-arrow{transform:rotate(180deg);}
+  .fold-body{display:none;}
+  .fold-body.open{display:block;}
+  .dict-count{
+    font-size:12px;font-weight:700;color:#fff;
+    border-radius:99px;padding:2px 9px;min-width:24px;text-align:center;
+    background:#7c8794;
+  }
+  .dict-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;}
+  .dict-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#eef4f9;border:1.5px solid #d5e2ec;border-radius:99px;
+    padding:5px 8px 5px 12px;font-size:13.5px;font-weight:600;color:#2b5876;
+  }
+  .dict-chip button{
+    border:none;background:none;color:#7fa0bd;cursor:pointer;
+    font-size:13px;padding:0 2px;font-family:inherit;
+  }
+  .clear-row{text-align:center;margin-top:26px;}
+  .clear-row button{
+    border:none;background:none;color:#9aa8b6;font-size:13px;
+    text-decoration:underline;cursor:pointer;font-family:inherit;
+  }
+  footer{
+    margin-top:30px;text-align:center;
+    font-size:12px;color:#a5b2bf;line-height:1.6;
+  }
+</style>
+</head>
+<body>
+<div class="user-overlay" id="userOverlay">
+  <h2>누구세요?</h2>
+  <button class="user-btn u-boss" onclick="pickUser('보스')">👨‍✈️ 보스</button>
+  <button class="user-btn u-machine" onclick="pickUser('머신')">🛠️ 머신</button>
+  <button class="user-btn u-cutter" onclick="pickUser('커터')">✂️ 커터</button>
+</div>
+
+<div class="app">
+  <header>
+    <h1>클라로</h1>
+    <div class="head-right">
+      <span class="me-chip" id="meChip" onclick="showUserPick()">👤 <span id="meName">?</span></span>
+      <span class="sync off" id="syncState">·</span>
+    </div>
+  </header>
+
+  <div class="mic-zone">
+    <button class="mic-btn" id="micBtn" aria-label="녹음 시작">🎤</button>
+    <div class="mic-label" id="micLabel" style="display:none;"></div>
+    <button class="hold-btn" id="holdBtn">📻 꾹 누르고 말하기</button>
+    <div id="earBadge" style="display:none;margin-top:8px;font-size:12px;font-weight:700;color:#0b6b5d;">🎧 AI 귀 사용 중</div>
+    <div class="mic-hint" id="micHint" style="display:none;"></div>
+    <div class="live" id="live"></div>
+    <div id="debugLine" style="display:none;">·</div>
+  </div>
+
+  <div class="type-zone">
+    <div class="type-row">
+      <input type="text" id="typeInput" placeholder="⌨️ 직접 입력">
+      <button id="typeBtn">정리</button>
+    </div>
+  </div>
+
+  <div class="type-zone">
+    <div class="type-row">
+      <button id="photoBtn" style="flex:1;padding:12px;background:#0b6b5d;">📷 사진 접수</button>
+    </div>
+    <input type="file" id="photoInput" accept="image/*" style="display:none;">
+    <div id="photoPreview" style="display:none;margin-top:10px;text-align:center;">
+      <img id="photoImg" style="max-width:100%;max-height:180px;border-radius:10px;box-shadow:0 3px 10px rgba(28,60,90,.15);">
+    </div>
+  </div>
+
+  <div class="brief" id="brief"><div class="btext" id="briefText"></div><button id="briefBtn">🔊 듣기</button></div>
+
+  <div class="jarvis" id="jarvis"><div class="jtitle">🤖 클라로</div><div id="jarvisText"></div></div>
+
+  <div class="status" id="status"><div class="spinner"></div><span id="statusText">정리하는 중...</span></div>
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="section">
+    <div class="section-head"><span>🔨</span><span class="t">작업 지시</span><span class="count todo" id="cntWork">0</span><button class="sort-btn" id="sortBtn">⚡ 오늘 정리</button></div>
+    <div id="workArea"><div class="empty">없음</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><span>📋</span><span class="t">잊지 말 것</span><span class="count note" id="cntMemo">0</span></div>
+    <div id="memoArea"><div class="empty">없음</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head fold-head" id="dictFoldHead" onclick="toggleDict()">
+      <span>📖</span><span class="t">거래처 · 용어 사전</span>
+      <span class="dict-count" id="dictCount">0</span>
+      <span class="fold-arrow">▼</span>
+    </div>
+    <div class="fold-body" id="dictFoldBody">
+      <div class="type-zone" style="margin-bottom:0;">
+        <div class="type-row">
+          <input type="text" id="dictInput" placeholder="업체명 추가 · 교정은 잘못>올바름">
+          <button id="dictBtn">추가</button>
+        </div>
+        <div class="dict-chips" id="dictChips"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head fold-head" id="setFoldHead" onclick="toggleSet()">
+      <span>⚙️</span><span class="t">설정</span>
+      <span class="fold-arrow">▼</span>
+    </div>
+    <div class="fold-body" id="setFoldBody">
+      <div class="type-zone" style="margin-bottom:0;">
+        <label>🔑 API 키 (Claude)</label>
+        <div class="type-row">
+          <input type="password" id="keyInput" placeholder="sk-ant-...">
+        </div>
+        <label style="margin-top:12px;">🎧 음성 AI 키 (OpenAI · 넣으면 AI 귀로 전환)</label>
+        <div class="type-row">
+          <input type="password" id="okeyInput" placeholder="sk-proj-... 또는 sk-...">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="clear-row"><button id="clearBtn">전체 지우기</button></div>
+
+  <footer>Klaro</footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const micBtn = document.getElementById('micBtn');
+const micLabel = document.getElementById('micLabel');
+const micHint = document.getElementById('micHint');
+const live = document.getElementById('live');
+const statusBox = document.getElementById('status');
+const statusText = document.getElementById('statusText');
+const errorBox = document.getElementById('errorBox');
+const typeInput = document.getElementById('typeInput');
+const typeBtn = document.getElementById('typeBtn');
+const sortBtn = document.getElementById('sortBtn');
+const workArea = document.getElementById('workArea');
+const memoArea = document.getElementById('memoArea');
+
+const WORK_GROUPS = [
+  { key:'재단', icon:'✂️', label:'재단' },
+  { key:'가공', icon:'🛠️', label:'가공' },
+  { key:'후작업', icon:'✨', label:'후작업' },
+  { key:'기타', icon:'📌', label:'기타' }
+];
+
+const store = { work: [], memo: [], dict: [] };
+
+/* ---------- 사용자 ---------- */
+let currentUser = '';
+function pickUser(name){
+  currentUser = name;
+  try{ localStorage.setItem('mb_user', name); }catch(_){}
+  document.getElementById('meName').textContent = name;
+  document.getElementById('userOverlay').classList.remove('show');
+}
+window.pickUser = pickUser;
+function showUserPick(){ document.getElementById('userOverlay').classList.add('show'); }
+window.showUserPick = showUserPick;
+
+/* ---------- 공용 작업판 (Firebase) ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyD-5SmnIEIfIv4AcQ9CqF3EdTRBxAiTycQ",
+  authDomain: "malbiseo-2669f.firebaseapp.com",
+  projectId: "malbiseo-2669f",
+  storageBucket: "malbiseo-2669f.firebasestorage.app",
+  messagingSenderId: "157499286193",
+  appId: "1:157499286193:web:e3e5d8f542d31ee0bb3890"
+};
+let boardRef = null;
+const syncState = document.getElementById('syncState');
+try{
+  firebase.initializeApp(firebaseConfig);
+  boardRef = firebase.firestore().collection('malbiseo').doc('board');
+  boardRef.onSnapshot(snap => {
+    syncState.textContent = '🟢';
+    syncState.className = 'sync on';
+    if (snap.exists){
+      const d = snap.data();
+      store.work = d.work || [];
+      store.memo = d.memo || [];
+      store.dict = d.dict || [];
+      render();
+      renderDict();
+      updateBriefing();
+    }
+  }, err => {
+    syncState.textContent = '🔴 연결 안 됨';
+    syncState.className = 'sync off';
+    console.error(err);
+  });
+}catch(e){
+  syncState.textContent = '🔴';
+  syncState.className = 'sync off';
+}
+
+function saveAll(){
+  try{ localStorage.setItem('mb_items_v2', JSON.stringify(store)); }catch(_){}
+  if (boardRef){
+    boardRef.set({ work: store.work, memo: store.memo, dict: store.dict, updated: Date.now() })
+      .catch(err => {
+        syncState.textContent = '🔴 저장 실패';
+        syncState.className = 'sync off';
+        console.error(err);
+      });
+  }
+}
+function loadAll(){
+  try{
+    const raw = localStorage.getItem('mb_items_v2');
+    if (raw){
+      const d = JSON.parse(raw);
+      if (d.work) store.work = d.work;
+      if (d.memo) store.memo = d.memo;
+      if (d.dict) store.dict = d.dict;
+    }
+    const k = localStorage.getItem('mb_key');
+    if (k) document.getElementById('keyInput').value = k;
+    const ok = localStorage.getItem('mb_okey');
+    if (ok) document.getElementById('okeyInput').value = ok;
+    const u = localStorage.getItem('mb_user');
+    if (u){ currentUser = u; document.getElementById('meName').textContent = u; }
+    else { showUserPick(); }
+  }catch(_){ showUserPick(); }
+}
+document.getElementById('keyInput').addEventListener('change', function(){
+  try{ localStorage.setItem('mb_key', this.value.trim()); }catch(_){}
+});
+document.getElementById('okeyInput').addEventListener('change', function(){
+  try{ localStorage.setItem('mb_okey', this.value.trim()); }catch(_){}
+  updateEarBadge();
+});
+
+/* ---------- 상태 진단 표시 ---------- */
+const debugLine = document.getElementById('debugLine');
+function dbg(msg){
+  const t = new Date().toLocaleTimeString('ko-KR');
+  debugLine.innerHTML = '상태: ' + msg + ' <span style="opacity:.5">(' + t + ')</span>';
+}
+
+/* ---------- 시작 신호음 (삐) ---------- */
+let audioCtx = null;
+function beep(){
+  try{
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.25);
+  }catch(_){}
+}
+
+/* ---------- 음성 안내 (TTS) ---------- */
+function speak(msg, done){
+  try{
+    const u = new SpeechSynthesisUtterance(msg);
+    u.lang = 'ko-KR';
+    u.rate = 1.05;
+    let called = false;
+    const fin = ()=>{ if(!called){ called = true; done && done(); } };
+    u.onend = fin;
+    u.onerror = fin;
+    if (speechSynthesis.speaking) speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+    setTimeout(fin, 1800);
+  }catch(_){ done && done(); }
+}
+
+/* ---------- 음성 인식 ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+let listening = false;
+let stopping = false;
+let stopTimer = null;
+let finalText = '';
+let interimText = '';
+let altNotes = [];      // 인식 후보 (교정용)
+let sessionBase = '';   // 자동 재연결 이전까지 확정된 말
+let sessionAltBase = []; // 이전 세션의 후보들
+let restartCount = 0;
+let restartWindow = 0;
+let silenceTimer = null;   // 말 없으면 자동 종료
+let maxTimer = null;       // 최대 녹음 시간
+const SILENCE_BEFORE = 12; // 말 시작 전에는 12초까지 기다림
+const SILENCE_AFTER = 5;   // 말 시작 후 침묵 5초면 자동 마무리
+const MAX_SEC = 90;        // 최대 90초
+let hasSpeech = false;     // 이번 녹음에서 말이 나왔는지
+
+function armSilenceTimer(){
+  if (silenceTimer) clearTimeout(silenceTimer);
+  const sec = hasSpeech ? SILENCE_AFTER : SILENCE_BEFORE;
+  silenceTimer = setTimeout(()=>{
+    if (listening){ dbg('🤫 말이 없어서 자동 마무리'); wsStop(); }
+  }, sec * 1000);
+}
+function clearTimers(){
+  if (silenceTimer){ clearTimeout(silenceTimer); silenceTimer = null; }
+  if (maxTimer){ clearTimeout(maxTimer); maxTimer = null; }
+}
+
+if (SR) {
+  rec = new SR();
+  rec.lang = 'ko-KR';
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.maxAlternatives = 4;
+
+  rec.onstart = () => { dbg('🔴 마이크 켜짐! 말씀하세요'); };
+
+  rec.onresult = (e) => {
+    // 갤럭시(안드로이드)는 이미 보낸 말을 통째로 다시 보내는 버릇이 있어서,
+    // 이어붙이지 않고 매번 처음부터 전체를 다시 조립한다 (중복 방지)
+    let curFinal = '';
+    let curInterim = '';
+    const curAlts = [];
+    let lastSeg = '';
+    for (let i = 0; i < e.results.length; i++) {
+      const t = (e.results[i][0].transcript || '');
+      if (e.results[i].isFinal) {
+        const seg = t.trim();
+        // 갤럭시가 같은 조각을 연달아 여러 번 보내면 첫 번째만 받기
+        if (!seg || seg === lastSeg) continue;
+        lastSeg = seg;
+        curFinal += seg + ' ';
+        const conf = e.results[i][0].confidence;
+        const alts = [];
+        for (let a = 1; a < e.results[i].length; a++) {
+          const at = (e.results[i][a].transcript || '').trim();
+          if (at && at !== seg) alts.push(at);
+        }
+        if (alts.length || (conf !== undefined && conf < 0.75)) {
+          const note = { 들린말: seg };
+          if (alts.length) note['후보'] = alts;
+          if (conf !== undefined && conf < 0.75) note['자신없음'] = true;
+          curAlts.push(note);
+        }
+      }
+      else curInterim += t;
+    }
+    // 재연결 직후, 새 세션이 앞 세션 끝부분을 또 보내면 겹치는 만큼 잘라내기
+    finalText = sessionBase + trimOverlap(sessionBase, curFinal);
+    interimText = curInterim;
+    altNotes = sessionAltBase.concat(curAlts);
+    dbg('🟢 목소리 인식되는 중');
+    hasSpeech = true;
+    armSilenceTimer();
+    live.classList.add('show');
+    live.innerHTML = escapeHtml(collapseRepeats(finalText)) + ' <span class="interim">' + escapeHtml(interimText) + '</span>';
+  };
+
+  rec.onerror = (e) => {
+    dbg('⚠️ 오류 발생: <b>' + e.error + '</b>');
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      clearTimers();
+      resetMicUI();
+      listening = false;
+      showError('마이크 사용이 막혀 있어요. 원인: <b>' + e.error + '</b><br>· 컴퓨터라면: 주소창 왼쪽 자물쇠 → 마이크 → 허용<br>· 아이폰이라면: 설정 → 일반 → 키보드 → "받아쓰기" 켜기 확인');
+    }
+  };
+
+  rec.onend = () => {
+    if (stopping) {
+      dbg('⏹ 녹음 종료, 정리 시작');
+      finalizeRecording();
+    } else if (listening) {
+      const now = Date.now();
+      if (now - restartWindow > 3000) { restartWindow = now; restartCount = 0; }
+      restartCount++;
+      if (restartCount > 6) {
+        listening = false;
+        resetMicUI();
+        dbg('⛔ 이 브라우저에서 연속 인식이 불안정해요');
+        showError('이 환경에서는 음성 인식이 계속 끊겨요. <b>사파리에서 직접 열었는지</b> 확인해주세요.');
+        return;
+      }
+      dbg('🔄 잠깐 끊김, 다시 연결 중...');
+      sessionBase = finalText;      // 여기까지는 확정
+      sessionAltBase = altNotes.slice();
+      setTimeout(() => {
+        if (listening && !stopping) { try { rec.start(); } catch(_){} }
+      }, 150);
+    } else {
+      dbg('마이크 꺼짐');
+    }
+  };
+}
+
+micBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+
+/* ---------- AI 귀 (녹음 → Whisper) ---------- */
+function okey(){ return document.getElementById('okeyInput').value.trim(); }
+function aiEar(){ return !!okey(); }
+
+let mediaRec = null, mediaChunks = [], mediaStream = null, recTick = null, recStartAt = 0, aiMaxTimer = null;
+
+async function aiStart(){
+  hideError();
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+  }catch(e){
+    showError('마이크 권한이 필요해요. 브라우저에서 마이크를 허용해주세요.');
+    return;
+  }
+  mediaChunks = [];
+  let mime = '';
+  if (window.MediaRecorder){
+    if (MediaRecorder.isTypeSupported('audio/webm')) mime = 'audio/webm';
+    else if (MediaRecorder.isTypeSupported('audio/mp4')) mime = 'audio/mp4';
+  } else {
+    showError('이 브라우저는 녹음을 지원하지 않아요.');
+    return;
+  }
+  try{
+    mediaRec = mime ? new MediaRecorder(mediaStream, { mimeType: mime }) : new MediaRecorder(mediaStream);
+  }catch(e){
+    mediaRec = new MediaRecorder(mediaStream);
+  }
+  mediaRec.ondataavailable = ev => { if (ev.data && ev.data.size) mediaChunks.push(ev.data); };
+  mediaRec.onstop = aiFinish;
+  mediaRec.start();
+  listening = true;
+  recStartAt = Date.now();
+  micBtn.classList.add('listening');
+  micBtn.textContent = '⏹';
+  beep();
+  live.classList.add('show');
+  live.innerHTML = '🎧 AI 귀로 듣는 중... <span class="interim">0초</span>';
+  recTick = setInterval(()=>{
+    const s = Math.round((Date.now()-recStartAt)/1000);
+    live.innerHTML = '🎧 AI 귀로 듣는 중... <span class="interim">' + s + '초</span>';
+  }, 1000);
+  aiMaxTimer = setTimeout(()=>{ if (listening) aiStop(); }, MAX_SEC * 1000);
+}
+
+function aiStop(){
+  if (!mediaRec || !listening) return;
+  listening = false;
+  if (recTick){ clearInterval(recTick); recTick = null; }
+  if (aiMaxTimer){ clearTimeout(aiMaxTimer); aiMaxTimer = null; }
+  try{ mediaRec.stop(); }catch(_){}
+}
+
+async function aiFinish(){
+  try{ mediaStream && mediaStream.getTracks().forEach(t=>t.stop()); }catch(_){}
+  resetMicUI();
+  if (document.getElementById('holdBtn').classList.contains('holding')){
+    holdBtn.classList.remove('holding');
+    holdBtn.textContent = '📻 꾹 누르고 말하기';
+  }
+  const blob = new Blob(mediaChunks, { type: (mediaRec && mediaRec.mimeType) || 'audio/webm' });
+  if (blob.size < 2000){
+    live.classList.remove('show');
+    showError('녹음이 너무 짧아요. 다시 시도해주세요.');
+    return;
+  }
+  speak('녹음 끝. 정리할게요.');
+  statusBox.classList.add('show');
+  statusText.textContent = 'AI가 받아적는 중...';
+  try{
+    const fd = new FormData();
+    const ext = ((mediaRec && mediaRec.mimeType) || '').includes('mp4') ? 'm4a' : 'webm';
+    fd.append('file', blob, 'voice.' + ext);
+    fd.append('model', 'whisper-1');
+    fd.append('language', 'ko');
+    // 업계 용어 + 사전을 힌트로 줘서 정확도 올리기
+    const vocab = ['아크릴','재단','밴딩','절곡','CNC','UV인쇄','접착','포맥스','MC나일론','POM','5T','3T','2T','8T','10T','견적','납품','원장','거래처']
+      .concat(store.dict.map(d=>d.split('>').pop().trim()));
+    fd.append('prompt', '아크릴 가공 공장 대화. 용어: ' + vocab.join(', '));
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + okey() },
+      body: fd
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || '음성 AI 오류');
+    let text = (data.text || '').trim();
+    if (!text){
+      live.classList.remove('show');
+      showError('들린 말이 없어요.');
+      statusBox.classList.remove('show');
+      return;
+    }
+    // 교정 규칙 사전 적용
+    store.dict.forEach(d=>{
+      const p = d.split('>');
+      if (p.length === 2 && p[0].trim() && p[1].trim()){
+        text = text.split(p[0].trim()).join(p[1].trim());
+      }
+    });
+    live.innerHTML = escapeHtml(text);
+    statusBox.classList.remove('show');
+    classifyText(text);
+  }catch(err){
+    statusBox.classList.remove('show');
+    live.classList.remove('show');
+    if (String(err.message).toLowerCase().includes('incorrect api key') || String(err.message).toLowerCase().includes('invalid')){
+      showError('음성 AI 키가 잘못됐어요. ⚙️ 설정의 🎧 키를 확인해주세요.');
+    } else {
+      showError('받아적기 실패: ' + escapeHtml(err.message));
+    }
+  }
+}
+
+/* ---------- 엔진 분배기: 키 있으면 AI 귀, 없으면 크롬 귀 ---------- */
+function startListening(){
+  if (aiEar()) aiStart();
+  else wsStart();
+}
+function requestStop(){
+  if (aiEar()) aiStop();
+  else wsStop();
+}
+
+// 🎤 버튼: 톡 눌러 시작 / 다시 톡 눌러 종료 (토글 전용)
+micBtn.addEventListener('click', () => {
+  if (!SR && !aiEar()) {
+    showError('이 브라우저는 음성 인식을 지원하지 않아요. ⚙️ 설정에 🎧 음성 AI 키를 넣으면 사용할 수 있어요.');
+    return;
+  }
+  if (!listening && !stopping) startListening();
+  else if (listening) requestStop();
+});
+
+// 📻 무전기 버튼: 꾹 누르는 동안만 듣고, 떼면 종료 (전용)
+const holdBtn = document.getElementById('holdBtn');
+holdBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+
+holdBtn.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (!SR && !aiEar()) {
+    showError('이 브라우저는 음성 인식을 지원하지 않아요. ⚙️ 설정에 🎧 음성 AI 키를 넣으면 사용할 수 있어요.');
+    return;
+  }
+  if (!listening && !stopping){
+    holdBtn.classList.add('holding');
+    holdBtn.textContent = '🔴 듣는 중';
+    startListening();
+  }
+});
+
+function holdRelease(){
+  holdBtn.classList.remove('holding');
+  holdBtn.textContent = '📻 꾹 누르고 말하기';
+  if (listening) requestStop();
+}
+holdBtn.addEventListener('pointerup', (e) => { e.preventDefault(); holdRelease(); });
+holdBtn.addEventListener('pointercancel', holdRelease);
+holdBtn.addEventListener('pointerleave', () => { if (holdBtn.classList.contains('holding')) holdRelease(); });
+
+function wsStart(){
+  hideError();
+  finalText = '';
+  interimText = '';
+  altNotes = [];
+  sessionBase = '';
+  sessionAltBase = [];
+  hasSpeech = false;
+  live.innerHTML = '';
+  live.classList.add('show');
+  listening = true;
+  micBtn.classList.add('listening');
+  micBtn.textContent = '⏹';
+  micLabel.textContent = '듣고 있어요...';
+  micHint.textContent = '끝나면 버튼을 다시 톡!';
+  beep();
+  dbg('마이크 켜는 중...');
+  try { rec.start(); } catch(err){ dbg('⚠️ 시작 실패: ' + err.name); }
+  armSilenceTimer();
+  maxTimer = setTimeout(()=>{ if (listening){ dbg('⏱ 최대 시간 도달, 자동 마무리'); wsStop(); } }, MAX_SEC * 1000);
+}
+
+function wsStop(){
+  clearTimers();
+  listening = false;
+  stopping = true;
+  micLabel.textContent = '마무리하는 중...';
+  try { rec.stop(); } catch(_){ finalizeRecording(); return; }
+  stopTimer = setTimeout(finalizeRecording, 2000);
+}
+
+function finalizeRecording(){
+  if (!stopping) return;
+  stopping = false;
+  if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
+  resetMicUI();
+  if (typeof holdRelease === 'function' && document.getElementById('holdBtn').classList.contains('holding')) holdRelease();
+  let text = (finalText + ' ' + interimText).trim();
+  text = text.replace(/녹음\s*시작/g, '').trim();
+  text = collapseRepeats(text); // 반복 구절 압축 (갤럭시 2중 방어)
+  // 교정 규칙 사전("잘못>올바름")을 먼저 무조건 적용
+  store.dict.forEach(d=>{
+    const p = d.split('>');
+    if (p.length === 2 && p[0].trim() && p[1].trim()){
+      text = text.split(p[0].trim()).join(p[1].trim());
+    }
+  });
+  if (text){
+    speak('녹음 끝. 정리할게요.');
+    classifyText(text, altNotes);
+  } else {
+    dbg('들린 말 없음 — 조용히 종료');
+    showError('들린 말이 없어요. 📻 무전기 버튼을 꾹 누른 채 폰을 입 가까이 대고 말해보세요.');
+  }
+}
+
+// 앞말(base)의 끝과 새말(add)의 시작이 겹치면 새말에서 겹친 부분 제거
+function trimOverlap(base, add){
+  const b = base.trim();
+  const a = add.trim();
+  if (!b || !a) return add;
+  const max = Math.min(b.length, a.length, 120);
+  for (let len = max; len >= 4; len--){
+    if (b.slice(-len) === a.slice(0, len)){
+      return a.slice(len).trim() ? a.slice(len).replace(/^\s+/,'') + ' ' : '';
+    }
+  }
+  return add;
+}
+
+// 같은 구절이 연달아 반복되면 한 번으로 압축 (예: "5T 재단 5T 재단 5T 재단" → "5T 재단")
+function collapseRepeats(t){
+  let prev = '';
+  let cur = t + ' ';
+  while (cur !== prev){
+    prev = cur;
+    cur = cur.replace(/((?:\S+\s+){2,6})\1+/g, '$1');  // 2~6단어 구절 반복 압축
+    cur = cur.replace(/(\S+\s+)\1{2,}/g, '$1');         // 한 단어 3회 이상 반복 압축
+  }
+  return cur.replace(/\s{2,}/g, ' ').trim();
+}
+
+function resetMicUI(){
+  micBtn.classList.remove('listening');
+  micBtn.textContent = '🎤';
+  micLabel.textContent = '🎤 톡! 눌러서 시작 · 다시 톡! 눌러서 끝';
+  micHint.textContent = '시끄러운 곳에선 📻 무전기 방식 + 폰을 입 가까이!';
+}
+
+/* ---------- 직접 입력 ---------- */
+typeBtn.addEventListener('click', submitTyped);
+typeInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') submitTyped(); });
+function submitTyped(){
+  const t = typeInput.value.trim();
+  if (!t) return;
+  typeInput.value = '';
+  classifyText(t);
+}
+
+/* ---------- API 호출 공통 ---------- */
+async function callClaude(prompt){
+  const key = document.getElementById('keyInput').value.trim();
+  const headers = { "Content-Type": "application/json" };
+  if (key) {
+    headers["x-api-key"] = key;
+    headers["anthropic-version"] = "2023-06-01";
+    headers["anthropic-dangerous-direct-browser-access"] = "true";
+  }
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 3000,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  const data = await res.json();
+  if (data.error) {
+    const msg = data.error.message || '알 수 없는 오류';
+    if (!key) throw new Error('NOKEY');
+    throw new Error(msg);
+  }
+  const raw = (data.content || []).map(c => c.text || '').join('');
+  let clean = raw.replace(/```json|```/g, '').trim();
+  // AI가 앞뒤에 말을 붙였어도 { } 부분만 골라내기
+  const s = clean.indexOf('{');
+  const e = clean.lastIndexOf('}');
+  if (s === -1 || e === -1) throw new Error('AI 답변에서 결과를 찾지 못함');
+  clean = clean.slice(s, e + 1);
+  try {
+    return JSON.parse(clean);
+  } catch(parseErr){
+    throw new Error('AI 답변 해석 실패 (답변이 잘렸을 수 있어요. 조금 나눠서 말해보세요)');
+  }
+}
+
+/* ---------- 사진 접수 ---------- */
+const photoBtn = document.getElementById('photoBtn');
+const photoInput = document.getElementById('photoInput');
+photoBtn.addEventListener('click', ()=>photoInput.click());
+photoInput.addEventListener('change', async ()=>{
+  const file = photoInput.files[0];
+  if (!file) return;
+  hideError();
+  // 미리보기
+  const url = URL.createObjectURL(file);
+  document.getElementById('photoImg').src = url;
+  document.getElementById('photoPreview').style.display = 'block';
+  // 사진 축소 (전송 비용/속도 절약)
+  statusBox.classList.add('show');
+  statusText.textContent = '사진 준비 중...';
+  photoBtn.disabled = true;
+  let imgData;
+  try{
+    imgData = await shrinkImage(file, 1100);
+  }catch(prepErr){
+    showError('사진 읽기 실패.<br><b>원인: ' + escapeHtml(prepErr.message) + '</b>');
+    statusBox.classList.remove('show');
+    photoBtn.disabled = false;
+    photoInput.value = '';
+    return;
+  }
+  statusText.textContent = '사진 읽는 중...';
+
+  const prompt = photoPrompt();
+
+  try{
+    const parsed = await callClaudeVision(prompt, imgData);
+    if (!parsed.items || !parsed.items.length){
+      showError('사진에서 작업 내용을 찾지 못했어요. 글자가 잘 보이게 다시 찍어보세요.');
+    } else {
+      applyItems(parsed);
+      speak('사진에서 ' + parsed.items.length + '건 등록했어요.');
+    }
+  }catch(err){
+    if (err.message === 'NOKEY'){
+      showError('AI 연결 실패. 아래 ⚙️ 설정에 API 키를 넣어주세요.');
+      document.getElementById('setFoldHead').classList.add('open');
+      document.getElementById('setFoldBody').classList.add('open');
+    }
+    else showError('사진 읽기 실패.<br><b>원인: ' + escapeHtml(err.message) + '</b>');
+    console.error(err);
+  }finally{
+    statusBox.classList.remove('show');
+    photoBtn.disabled = false;
+    photoInput.value = '';
+    setTimeout(()=>{ document.getElementById('photoPreview').style.display='none'; }, 4000);
+  }
+});
+
+function photoPrompt(){
+  return `당신은 아크릴 가공 공장(세명아크릴)의 공용 비서입니다. 등록하는 사람: ${currentUser}
+이 사진은 카카오톡 대화 캡처, 문자 캡처, 주문서, 또는 도면입니다. 사진 속 내용을 읽고 작업 지시와 잊지 말 것을 뽑아내세요.
+
+- 카톡/문자 캡처라면: 거래처가 요청한 주문·재단 내용을 뽑으세요. 상대방 이름/업체명이 보이면 text에 포함.
+- 도면이라면: 재질, 두께(T), 가로×세로 치수, 수량, 가공 내용(홀, 밴딩, CNC 등)을 읽으세요.
+- 인삿말, 잡담은 무시하세요.
+
+[매우 중요 - 묶기 규칙]
+사진 한 장은 보통 하나의 주문입니다. 품목이나 절단 사이즈가 여러 개여도 작업 지시를 여러 줄로 쪼개지 말고, 공정별로 하나의 작업 지시로 묶으세요.
+- text: "○○업체 재단 (2품목)" 처럼 한 줄 요약
+- 품목별 상세는 "specs" 배열에 정리 (품목마다 하나씩, 모르는 칸은 ""):
+  "specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"},{"두께":"3T","색상":"백색","사이즈":"500×400","수량":"5장"}]
+- why에는 specs에 못 담는 특이사항만 (홀 위치, 마감 지시 등)
+재단과 밴딩처럼 공정이 다르면 그때만 지시를 나누세요.
+
+분류 종류:
+1. "work" = 공장 작업. work_type: "재단"(자르기) / "가공"(밴딩,CNC,UV,홀,접착) / "후작업"(조립,검수,포장,배송준비)
+2. "memo" = 연락하기, 서류·견적 보내기, 택배, 자재 주문, 기억할 정보(가격·납기·연락처)
+- work와 memo에 "due"(기한, 없으면 "")와 "priority"(1급함/2보통/3여유), "why"(치수·조건 등) 포함.
+- 두께는 5T, 3T 형식. 치수는 1200×600 형식(mm). 숫자는 아라비아 숫자로.
+${store.dict.length ? '\n[거래처 사전] 비슷한 이름이 보이면 이 표기로: ' + store.dict.join(', ') : ''}
+
+반드시 아래 JSON으로만 답하세요. 다른 말, 백틱 금지.
+{"items":[{"type":"work","work_type":"재단","text":"...","why":"...","due":"","priority":2,"specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"}]},{"type":"memo","text":"...","due":"","priority":3}]}
+사진에서 일 관련 내용을 못 찾았으면 {"items":[]}`;
+}
+
+function shrinkImage(file, maxSize){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      try{
+        let w = img.width, hgt = img.height;
+        if (Math.max(w,hgt) > maxSize){
+          const r = maxSize / Math.max(w,hgt);
+          w = Math.round(w*r); hgt = Math.round(hgt*r);
+        }
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = hgt;
+        cv.getContext('2d').drawImage(img, 0, 0, w, hgt);
+        const out = cv.toDataURL('image/jpeg', 0.72).split(',')[1];
+        if (!out || out.length < 100) throw new Error('변환 결과가 비어있음');
+        resolve({ data: out, type: 'image/jpeg' });
+      }catch(e){ fallbackRead(); }
+    };
+    img.onerror = ()=>fallbackRead();
+    img.src = URL.createObjectURL(file);
+
+    // 축소 실패 시: 원본을 그대로 읽어서 전송 (jpeg/png/webp/gif만 가능)
+    function fallbackRead(){
+      const ok = ['image/jpeg','image/png','image/webp','image/gif'];
+      if (!ok.includes(file.type)){
+        reject(new Error('이 사진 형식(' + (file.type||'알 수 없음') + ')은 읽을 수 없어요. 스크린샷(캡처)으로 다시 시도해보세요.'));
+        return;
+      }
+      const r = new FileReader();
+      r.onload = ()=>resolve({ data: String(r.result).split(',')[1], type: file.type });
+      r.onerror = ()=>reject(new Error('사진 파일을 읽지 못했어요'));
+      r.readAsDataURL(file);
+    }
+  });
+}
+
+async function callClaudeVision(promptText, imgData){
+  // 용량 확인 (너무 크면 전송이 끊겨요)
+  if (imgData.data.length > 4500000){
+    throw new Error('사진이 너무 커요. 스크린샷(캡처)으로 다시 시도해보세요.');
+  }
+  const key = document.getElementById('keyInput').value.trim();
+  const headers = { "Content-Type": "application/json" };
+  if (key) {
+    headers["x-api-key"] = key;
+    headers["anthropic-version"] = "2023-06-01";
+    headers["anthropic-dangerous-direct-browser-access"] = "true";
+  }
+  const body = JSON.stringify({
+    model: "claude-sonnet-4-6",
+    max_tokens: 3000,
+    messages: [{ role: "user", content: [
+      { type: "image", source: { type: "base64", media_type: imgData.type, data: imgData.data } },
+      { type: "text", text: promptText }
+    ]}]
+  });
+
+  let res = null, lastNetErr = null;
+  for (let attempt = 1; attempt <= 2; attempt++){
+    try{
+      res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers, body });
+      lastNetErr = null;
+      break;
+    }catch(netErr){
+      lastNetErr = netErr;
+      statusText.textContent = '연결이 끊겨서 다시 시도 중... (' + attempt + '/2)';
+      await new Promise(r=>setTimeout(r, 1200));
+    }
+  }
+  if (lastNetErr) throw new Error('인터넷 전송이 끊겼어요. 와이파이/데이터 상태를 확인하고 다시 시도해주세요.');
+
+  const data = await res.json();
+  if (data.error) {
+    if (!key) throw new Error('NOKEY');
+    throw new Error(data.error.message || '알 수 없는 오류');
+  }
+  const raw = (data.content || []).map(c => c.text || '').join('');
+  let clean = raw.replace(/```json|```/g, '').trim();
+  const s = clean.indexOf('{');
+  const e = clean.lastIndexOf('}');
+  if (s === -1 || e === -1) throw new Error('AI 답변에서 결과를 찾지 못함');
+  return JSON.parse(clean.slice(s, e + 1));
+}
+
+/* ---------- 말 분류 ---------- */
+async function classifyText(text, alts){
+  hideError();
+  statusBox.classList.add('show');
+  statusText.textContent = '정리하는 중...';
+  typeBtn.disabled = true;
+
+  const prompt = `당신은 아크릴 가공 공장(세명아크릴)의 공용 음성 비서입니다. 사용자는 보스(아버지), 머신(가공 담당), 커터(재단 담당) 세 명입니다.
+지금 말한 사람: ${currentUser}
+아래는 이 사람이 일하면서 한 말을 받아적은 것입니다. 이 내용을 의미 단위로 나눠서 분류하세요.
+
+분류 종류:
+1. "work" = 공장 작업 지시. 반드시 work_type을 함께 정하세요:
+   - "재단": 자르기, 컷팅, 톱 작업, 레이저 컷 등 판재를 자르는 일
+   - "가공": 밴딩(절곡), CNC, UV인쇄, 접착, 드릴, 홀 가공, 열가공, 폴리싱 등
+   - "후작업": 조립, 검수, 포장, 보호지 제거, 마감, 배송 준비 등
+   - 애매하면 가장 가까운 것 하나를 고르세요.
+2. "memo" = 잊으면 안 되는 사무·연락·기록. 예시:
+   - 거래처에 원장/서류/견적 보내기
+   - 누구한테 연락/회신하기
+   - 택배/배송 보내기
+   - 자재 주문하기
+   - 가격, 치수, 수량, 재고, 납기일 같은 기억할 정보
+3. "update" = 이미 등록된 항목에 정보를 덧붙이거나 고치라는 말. 예: "아까 그 재단 건은 대한상사 거야", "방금 등록한 가공 건 업체는 한빛이야", "그 재단 수량 10장이 아니라 15장이야"
+   → [현재 목록]에서 해당 항목을 찾아 {"type":"update","목록":"work"또는"memo","번호":항목의 번호,"text":"수정된 전체 내용"}으로 답하세요. text는 기존 내용에 새 정보를 합친 완성형으로 쓰세요 (업체명은 맨 앞에).
+4. "ask" = 비서(당신)에게 하는 질문이나 요청. 예: "남은 일 뭐야?", "오늘 급한 게 뭐지?", "내가 뭐 깜빡한 거 없어?", "재단 몇 개 남았어?"
+   → 이 경우 아래 [현재 목록]을 보고 "answer"에 말로 들려줄 대답을 쓰세요. 짧고 자연스러운 존댓말 구어체로, 항목이 많으면 급한 것 위주로 요약. 남은 게 없으면 없다고 답하세요.
+5. "chat" = 일과 무관한 잡담, 감탄, 혼잣말
+
+공통 규칙:
+- 한 문장에 여러 개가 섞여 있으면 쪼개서 각각 뽑으세요.
+- text는 핵심만 간결하게 다듬어 쓰세요.
+- work와 memo에는 "due"(기한: "오늘", "내일", "오늘 15시", "8/6" 등, 없으면 "")와 "priority"(1=급함: 오늘까지거나 시간이 정해짐, 2=보통, 3=여유)를 붙이세요.
+- work에 재질·치수·수량 정보가 있으면 "specs" 배열로 정리하세요. 품목마다 하나씩:
+  "specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"}] (모르는 칸은 "")
+  specs에 넣은 정보는 text와 why에 중복해서 쓰지 마세요. text는 "○○업체 재단 (2품목)"처럼 짧게.
+- "why"에는 specs에 못 담는 포인트(대상, 조건)만 짧게. 없으면 생략.
+
+받아쓰기 오류 교정 (아크릴 업계 용어 - 매우 중요):
+- 이 말은 아크릴 가공 공장에서 나온 말입니다. 문맥상 어색한 단어는 공장에서 쓸 법한 비슷한 발음의 단어로 적극 교정하세요. (예: "제단"→"재단", "밴딩"과 "배딩"→"밴딩", "포맥스"류 오기 교정)
+- 아래 [받아쓰기 후보]가 있으면 참고하되, "자신없음" 표시가 있는 구간은 받아쓰기가 스스로 확신하지 못한 부분이니 문맥과 후보를 근거로 특히 적극적으로 교정하세요.
+- 한국어 받아쓰기 특유의 오류를 교정하세요:
+  · 숫자가 쪼개짐: "천 이백" → "1200", "열 장" → "10장", "다섯 개" → "5개"
+  · 단위 오인: "티"/"미리"/"밀리" → T/mm 문맥에 맞게, "바이" → "×" (예: "천이백 바이 육백" → "1200×600")
+  · 비슷한 발음 혼동: 재단/제단/재판, 절곡/절곡기, 납품/납부, 견적/전적
+  · 군더더기 제거: "음", "어", "그", "저기", "이제", "막" 같은 추임새는 빼고 정리
+  · 같은 말을 더듬어 반복한 것은 한 번으로 정리
+- 두께: "오티/오 티/OT/5티" → "5T", "삼티/3티" → "3T", "이티/2티" → "2T", "팔티" → "8T", "십티/10티" → "10T"
+- 치수: "천이백에 육백" → "1200×600", "천에 이천" → "1000×2000" (mm 단위)
+- 수량: "열 장" → "10장", "다섯 장" → "5장"
+- 가격: "만오천 원" → "15,000원", "장당 만이천" → "장당 12,000원"
+- 자재: 투명/백색/흑색/미러/스모그 아크릴, MC나일론, POM, PC, PVC 포맥스
+- 가공: 재단, 밴딩, CNC, UV인쇄, 접착, 열가공
+- 숫자+단위는 항상 아라비아 숫자로 통일
+
+[거래처·고유명사 사전 - 최우선 적용]
+${store.dict.length ? '아래는 우리 회사가 실제로 쓰는 정확한 이름들입니다. 받아적힌 말 중에 발음이 비슷한 것이 있으면 반드시 이 사전의 표기로 고쳐 쓰세요:\n' + store.dict.join(', ') : '(아직 등록된 사전 없음)'}
+
+반드시 아래 JSON 형식으로만 답하세요. 다른 말, 마크다운 백틱 절대 금지.
+{"items":[{"type":"work","work_type":"재단","text":"...","why":"...","due":"오늘","priority":1,"specs":[{"두께":"5T","색상":"투명","사이즈":"1200×600","수량":"10장"}]},{"type":"memo","text":"...","due":"","priority":3},{"type":"update","목록":"work","번호":0,"text":"..."},{"type":"ask","answer":"..."},{"type":"chat","text":"..."}]}
+
+[현재 목록]
+남은 작업 지시: ${JSON.stringify(store.work.map((t,i)=>({번호:i, 일:t.text, 종류:t.work, 기한:t.due, 급함:t.priority===1, 올린사람:t.who||'', 완료:!!t.done})).filter(t=>!t.완료))}
+잊지 말 것: ${JSON.stringify(store.memo.map((t,i)=>({번호:i, 일:t.text, 기한:t.due, 올린사람:t.who||'', 완료:!!t.done})).filter(t=>!t.완료))}
+완료한 작업 수: ${store.work.filter(t=>t.done).length + store.memo.filter(t=>t.done).length}
+
+받아적은 내용:
+"""${text}"""
+${alts && alts.length ? '\n[받아쓰기 후보]\n' + JSON.stringify(alts) : ''}`;
+
+  try {
+    const parsed = await callClaude(prompt);
+    if (!parsed.items || !parsed.items.length) throw new Error('empty');
+    applyItems(parsed);
+    live.classList.remove('show');
+  } catch(err){
+    if (err.message === 'NOKEY'){
+      showError('AI 연결 실패. 아래 ⚙️ 설정에 API 키를 넣어주세요.');
+      document.getElementById('setFoldHead').classList.add('open');
+      document.getElementById('setFoldBody').classList.add('open');
+    }
+    else showError('정리 중 문제가 생겼어요.<br><b>원인: ' + escapeHtml(err.message) + '</b><br>다시 시도해주세요.');
+    console.error(err);
+  } finally {
+    statusBox.classList.remove('show');
+    typeBtn.disabled = false;
+  }
+}
+
+/* ---------- 분류 결과 등록 (공용) ---------- */
+function applyItems(parsed){
+  let addedWork = false;
+  let askAnswer = '';
+  let updated = 0;
+  (parsed.items||[]).forEach(it => {
+    if (it.type === 'chat') return;
+    if (it.type === 'ask'){ askAnswer = it.answer || ''; return; }
+    if (it.type === 'update'){
+      const list = it['목록'] === 'memo' ? store.memo : store.work;
+      const t = list[it['번호']];
+      if (t && it.text){ t.text = it.text; updated++; }
+      return;
+    }
+    if (it.type === 'work'){
+      const wt = ['재단','가공','후작업'].includes(it.work_type) ? it.work_type : '기타';
+      store.work.push({ text: it.text, why: it.why||'', due: it.due||'', priority: it.priority||3, done:false, work: wt, who: currentUser, specs: Array.isArray(it.specs)?it.specs:[] });
+      addedWork = true;
+    } else {
+      store.memo.push({ text: it.text, why: it.why||'', due: it.due||'', priority: it.priority||3, done:false, who: currentUser });
+    }
+  });
+  saveAll();
+  render();
+  if (askAnswer){
+    document.getElementById('jarvisText').textContent = askAnswer;
+    document.getElementById('jarvis').classList.add('show');
+    speak(askAnswer);
+  }
+  if (updated && !askAnswer) speak(updated + '건 수정했어요.');
+  if (addedWork && store.work.filter(t=>!t.done).length > 1) prioritizeToday(true);
+}
+
+/* ---------- 오늘 정리 (작업 순서 배치) ---------- */
+sortBtn.addEventListener('click', ()=>prioritizeToday(false));
+
+async function prioritizeToday(auto){
+  const remaining = store.work.map((it,i)=>({i, text:it.text, due:it.due||'', work:it.work||'기타', done:!!it.done}))
+                              .filter(x=>!x.done);
+  if (!remaining.length){ if(!auto) showError('남은 작업이 없어요! 🎉'); return; }
+  hideError();
+  sortBtn.disabled = true;
+  statusBox.classList.add('show');
+  statusText.textContent = auto ? '작업 순서 배치 중...' : '우선순위 정리 중...';
+
+  const today = new Date();
+  const dateStr = (today.getMonth()+1) + '월 ' + today.getDate() + '일';
+
+  const prompt = `당신은 아크릴 가공 공장 사장님의 비서입니다. 오늘은 ${dateStr}입니다.
+아래는 남은 작업 지시 목록입니다. 각 작업의 우선순위를 매기고, 실제로 먼저 해야 하는 순서대로 정렬하세요.
+
+순서 기준: 기한 임박 > 시간 약속 > 납기·거래처 관련 > 공정 순서(재단이 가공보다 먼저, 가공이 후작업보다 먼저인 게 자연스러움) > 짧게 끝나는 일.
+priority: 1(급함: 오늘까지거나 시간이 정해짐), 2(보통), 3(여유)
+
+반드시 아래 JSON 형식으로만, 실행 순서대로 정렬해서 답하세요. 다른 말, 백틱 금지.
+{"items":[{"i":0,"priority":1,"due":"오늘"}]}
+due는 기존 값 유지, 새로 알 수 있으면 채우고, 모르면 "".
+
+작업 목록:
+${JSON.stringify(remaining.map(({i,text,due,work})=>({i,text,due,work})))}`;
+
+  try {
+    const parsed = await callClaude(prompt);
+    (parsed.items || []).forEach((u, pos) => {
+      const t = store.work[u.i];
+      if (t){
+        t.priority = u.priority || t.priority || 3;
+        if (u.due !== undefined) t.due = u.due;
+        t.rank = pos;
+      }
+    });
+    saveAll();
+    render();
+    if (!auto){
+      const urgent = store.work.filter(t=>!t.done && (t.priority||3)===1).length;
+      speak(urgent ? '정리했어요. 급한 작업이 ' + urgent + '개 있어요.' : '정리했어요. 오늘 급한 작업은 없어요.');
+    }
+  } catch(err){
+    if (!auto) showError('우선순위 정리 중 문제가 생겼어요. 다시 시도해주세요.');
+    console.error(err);
+  } finally {
+    sortBtn.disabled = false;
+    statusBox.classList.remove('show');
+  }
+}
+
+/* ---------- 화면 그리기 ---------- */
+function prioBadge(it){
+  const p = it.priority || 3;
+  const label = p===1 ? '급함' : p===2 ? '보통' : '여유';
+  return '<span class="badge p'+p+'">'+label+'</span>';
+}
+function matClass(c){
+  if (!c) return 'sp';
+  if (c.includes('투명')) return 'sp sp-clear';
+  if (c.includes('백') || c.includes('화이트') || c.includes('흰')) return 'sp sp-white';
+  if (c.includes('흑') || c.includes('검') || c.includes('블랙')) return 'sp sp-black';
+  if (c.includes('미러') || c.includes('거울')) return 'sp sp-mirror';
+  if (c.includes('스모그') || c.includes('스모크') || c.includes('그레이') || c.includes('회')) return 'sp sp-smoke';
+  if (c.includes('갈') || c.includes('브라운')) return 'sp sp-brown';
+  return 'sp';
+}
+function specsHtml(it){
+  if (!it.specs || !it.specs.length) return '';
+  const rows = it.specs.map(s=>{
+    const parts = [];
+    if (s['두께']) parts.push('<span class="sp sp-t">'+escapeHtml(s['두께'])+'</span>');
+    if (s['색상']) parts.push('<span class="'+matClass(s['색상'])+'">'+escapeHtml(s['색상'])+'</span>');
+    if (s['사이즈']) parts.push('<span class="sp sp-size">'+escapeHtml(s['사이즈'])+'</span>');
+    if (s['수량']) parts.push('<span class="sp sp-qty">'+escapeHtml(s['수량'])+'</span>');
+    return parts.length ? '<div class="spec-row">'+parts.join('')+'</div>' : '';
+  }).filter(Boolean);
+  return rows.length ? '<div class="specs">'+rows.join('')+'</div>' : '';
+}
+function metaLine(it){
+  const parts = [];
+  if (it.due) parts.push('📅 ' + escapeHtml(it.due));
+  if (it.why) parts.push('⏰ ' + escapeHtml(it.why));
+  return parts.length ? '<div class="why">' + parts.join(' · ') + '</div>' : '';
+}
+function itemHtml(kind, it, i, num){
+  return '<div class="item '+kind+(it.done?' done':'')+'">'
+    + '<button class="chk" onclick="toggleDone(\''+kind+'\','+i+')">'+(it.done?'✓':'')+'</button>'
+    + '<div class="body" onclick="editItem(\''+kind+'\','+i+')">'
+    + (num?'<span class="ord">'+num+'</span>':'')
+    + prioBadge(it)
+    + escapeHtml(it.text)
+    + (it.who ? '<span class="who-tag who-'+escapeHtml(it.who)+'">'+escapeHtml(it.who)+'</span>' : '')
+    + specsHtml(it)
+    + metaLine(it)
+    + '</div>'
+    + '<button class="del" onclick="removeItem(\''+kind+'\','+i+')">✕</button>'
+    + '</div>';
+}
+
+function render(){
+  /* 작업 지시: 재단/가공/후작업 그룹별 */
+  const workRemain = store.work.filter(t=>!t.done).length;
+  document.getElementById('cntWork').textContent = workRemain;
+
+  if (!store.work.length){
+    workArea.innerHTML = '<div class="empty">없음</div>';
+  } else {
+    // 순서 번호: rank(작업 순서) 기준으로 미완료 전체에 통합 번호
+    const sorted = store.work.map((it,i)=>({it,i}))
+      .sort((a,b)=>((a.it.done?1:0)-(b.it.done?1:0)) || ((a.it.rank??999)-(b.it.rank??999)) || ((a.it.priority||3)-(b.it.priority||3)));
+    let n = 0;
+    const numMap = {};
+    sorted.forEach(o=>{ if(!o.it.done) numMap[o.i] = ++n; });
+
+    let html = '';
+    WORK_GROUPS.forEach(g=>{
+      const members = sorted.filter(o=>(o.it.work||'기타')===g.key);
+      if (!members.length) return;
+      const remain = members.filter(o=>!o.it.done).length;
+      html += '<div class="grp-head"><span>'+g.icon+' '+g.label+'</span><span class="line"></span><span>'+remain+'</span></div>';
+      html += members.map(o=>itemHtml('work', o.it, o.i, o.it.done?0:numMap[o.i])).join('');
+    });
+    workArea.innerHTML = html;
+  }
+
+  /* 잊지 말 것 */
+  const memoRemain = store.memo.filter(t=>!t.done).length;
+  document.getElementById('cntMemo').textContent = memoRemain;
+
+  if (!store.memo.length){
+    memoArea.innerHTML = '<div class="empty">없음</div>';
+  } else {
+    const sorted = store.memo.map((it,i)=>({it,i}))
+      .sort((a,b)=>((a.it.done?1:0)-(b.it.done?1:0)) || ((a.it.priority||3)-(b.it.priority||3)));
+    memoArea.innerHTML = sorted.map(o=>itemHtml('memo', o.it, o.i, 0)).join('');
+  }
+}
+
+function editItem(kind, i){
+  const it = store[kind][i];
+  if (!it) return;
+  const v = window.prompt('내용 수정 (업체명을 앞에 붙여도 좋아요)', it.text);
+  if (v === null) return; // 취소
+  const t = v.trim();
+  if (!t) return;
+  it.text = t;
+  saveAll();
+  render();
+}
+window.editItem = editItem;
+
+function toggleDone(kind, i){
+  store[kind][i].done = !store[kind][i].done;
+  saveAll();
+  render();
+}
+window.toggleDone = toggleDone;
+
+function removeItem(kind, i){
+  store[kind].splice(i,1);
+  saveAll();
+  render();
+}
+window.removeItem = removeItem;
+
+/* ---------- 거래처 사전 ---------- */
+const dictInput = document.getElementById('dictInput');
+document.getElementById('dictBtn').addEventListener('click', addDictWord);
+dictInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') addDictWord(); });
+function addDictWord(){
+  const w = dictInput.value.trim();
+  if (!w) return;
+  // 쉼표로 여러 개 한 번에 등록 가능
+  w.split(',').map(x=>x.trim()).filter(Boolean).forEach(x=>{
+    if (!store.dict.includes(x)) store.dict.push(x);
+  });
+  dictInput.value = '';
+  saveAll();
+  renderDict();
+}
+function removeDictWord(i){
+  store.dict.splice(i,1);
+  saveAll();
+  renderDict();
+}
+window.removeDictWord = removeDictWord;
+function renderDict(){
+  const box = document.getElementById('dictChips');
+  box.innerHTML = store.dict.map((w,i)=>
+    '<span class="dict-chip">'+escapeHtml(w)+'<button onclick="removeDictWord('+i+')">✕</button></span>'
+  ).join('');
+  document.getElementById('dictCount').textContent = store.dict.length;
+}
+function toggleDict(){
+  const head = document.getElementById('dictFoldHead');
+  const body = document.getElementById('dictFoldBody');
+  head.classList.toggle('open');
+  body.classList.toggle('open');
+  try{ localStorage.setItem('mb_dict_open', body.classList.contains('open') ? '1' : '0'); }catch(_){}
+}
+window.toggleDict = toggleDict;
+function toggleSet(){
+  document.getElementById('setFoldHead').classList.toggle('open');
+  document.getElementById('setFoldBody').classList.toggle('open');
+}
+window.toggleSet = toggleSet;
+// 마지막 접힘 상태 기억
+try{
+  if (localStorage.getItem('mb_dict_open') === '1'){
+    document.getElementById('dictFoldHead').classList.add('open');
+    document.getElementById('dictFoldBody').classList.add('open');
+  }
+}catch(_){}
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  store.work=[]; store.memo=[];
+  saveAll();
+  render();
+});
+
+function showError(html){ errorBox.innerHTML = html; errorBox.classList.add('show'); }
+function hideError(){ errorBox.classList.remove('show'); }
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function updateEarBadge(){
+  document.getElementById('earBadge').style.display = aiEar() ? 'block' : 'none';
+}
+
+loadAll();
+render();
+renderDict();
+updateEarBadge();
+
+/* ---------- 공유 접수 (안드로이드: 공유 → 클라로) ---------- */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+(async function handleShared(){
+  const params = new URLSearchParams(location.search);
+  if (params.get('shared') !== '1') return;
+  history.replaceState(null, '', location.pathname); // 주소 정리
+  try{
+    const cache = await caches.open('klaro-share');
+    const imgRes = await cache.match('shared-image');
+    const txtRes = await cache.match('shared-text');
+    const sharedText = txtRes ? (await txtRes.text()).trim() : '';
+    if (imgRes){
+      const blob = await imgRes.blob();
+      await cache.delete('shared-image');
+      await cache.delete('shared-text');
+      dbg('📥 공유받은 사진 접수 중...');
+      processSharedImage(blob);
+    } else if (sharedText){
+      await cache.delete('shared-text');
+      dbg('📥 공유받은 글 접수 중...');
+      classifyText(sharedText);
+    }
+  }catch(err){ console.error(err); }
+})();
+
+async function processSharedImage(blob){
+  hideError();
+  statusBox.classList.add('show');
+  statusText.textContent = '사진 준비 중...';
+  let imgData;
+  try{
+    imgData = await shrinkImage(blob, 1100);
+  }catch(prepErr){
+    showError('공유받은 사진을 읽지 못했어요: ' + escapeHtml(prepErr.message));
+    statusBox.classList.remove('show');
+    return;
+  }
+  statusText.textContent = '사진 읽는 중...';
+  const prompt = photoPrompt();
+  try{
+    const parsed = await callClaudeVision(prompt, imgData);
+    if (!parsed.items || !parsed.items.length){
+      showError('사진에서 작업 내용을 찾지 못했어요.');
+    } else {
+      applyItems(parsed);
+      speak('공유받은 사진에서 ' + parsed.items.length + '건 등록했어요.');
+    }
+  }catch(err){
+    showError('사진 읽기 실패: ' + escapeHtml(err.message));
+  }finally{
+    statusBox.classList.remove('show');
+  }
+}
+// API 키가 아직 없으면 설정을 펼쳐서 보여주기
+if (!document.getElementById('keyInput').value.trim()){
+  document.getElementById('setFoldHead').classList.add('open');
+  document.getElementById('setFoldBody').classList.add('open');
+}
+
+/* ---------- 깜빡 방지 브리핑 ---------- */
+function buildBriefing(){
+  const urgentWork = store.work.filter(t=>!t.done && (t.priority||3)===1);
+  const urgentMemo = store.memo.filter(t=>!t.done && (t.priority||3)===1);
+  const restWork = store.work.filter(t=>!t.done).length;
+  const restMemo = store.memo.filter(t=>!t.done).length;
+  if (!restWork && !restMemo) return null;
+  let msg = '';
+  const urgent = [...urgentWork, ...urgentMemo];
+  if (urgent.length){
+    const names = urgent.slice(0,3).map(t=>t.text).join(', ');
+    msg = '급한 일 ' + urgent.length + '개가 남아 있어요. ' + names + (urgent.length>3?' 등이에요.':' 이에요.');
+  } else {
+    msg = '급한 일은 없고, 작업 ' + restWork + '개, 잊지 말 것 ' + restMemo + '개가 남아 있어요.';
+  }
+  return msg;
+}
+let briefMsg = '';
+function updateBriefing(){
+  const msg = buildBriefing();
+  const box = document.getElementById('brief');
+  if (!msg){ box.classList.remove('show'); briefMsg=''; return; }
+  briefMsg = msg;
+  document.getElementById('briefText').textContent = '🔔 ' + msg;
+  box.classList.add('show');
+}
+document.getElementById('briefBtn').addEventListener('click', ()=>{ if(briefMsg) speak(briefMsg); });
+updateBriefing();
+</script>
+</body>
+</html>
