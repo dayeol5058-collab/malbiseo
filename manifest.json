@@ -1,0 +1,35 @@
+{
+  "name": "클라로",
+  "short_name": "클라로",
+  "description": "세명아크릴 공용 작업판",
+  "start_url": "./index.html",
+  "display": "minimal-ui",
+  "background_color": "#E3EAF2",
+  "theme_color": "#0A2544",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "share_target": {
+    "action": "./share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "images",
+          "accept": [
+            "image/*"
+          ]
+        }
+      ]
+    }
+  }
+}
