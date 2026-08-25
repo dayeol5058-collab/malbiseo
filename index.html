@@ -2469,10 +2469,13 @@ function switchAppView(view){
 window.switchAppView = switchAppView;
 </script>
 
-<script>
-(function(){
-'use strict';
-/* ===== 재단지시서: Klaro와 같은 compat SDK, 별도 이름의 Firebase 앱 인스턴스 사용 (인증 없이 Firestore만) ===== */
+<script type="module">
+/* ===== 재단지시서: 독립된 모듈 방식 Firebase 연결 (인증 없이 Firestore만, 클라로 compat SDK와 무관) ===== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyD-5SmnIEIfIv4AcQ9CqF3EdTRBxAiTycQ",
   authDomain: "malbiseo-2669f.firebaseapp.com",
@@ -2481,10 +2484,8 @@ const firebaseConfig = {
   messagingSenderId: "157499286193",
   appId: "1:157499286193:web:e3e5d8f542d31ee0bb3890"
 };
-const fbApp = firebase.apps.some(function(a){ return a.name === 'cuttingApp'; })
-  ? firebase.app('cuttingApp')
-  : firebase.initializeApp(firebaseConfig, 'cuttingApp');
-const db = fbApp.firestore();
+const fbApp = initializeApp(firebaseConfig, 'cuttingApp');
+const db = getFirestore(fbApp);
 
 const ORDERS_COL = 'cutting_orders';
 const SETTINGS_DOC_PATH = ['cutting_settings', 'shared'];
@@ -2505,7 +2506,7 @@ function setSyncStatus(status){
 function startFirebaseSync(){
   setSyncStatus('connecting');
 
-  db.collection(ORDERS_COL).onSnapshot(function(snap){
+  onSnapshot(collection(db, ORDERS_COL), function(snap){
     ordersCache = snap.docs.map(function(d){ return Object.assign({id: d.id}, d.data()); });
     syncReady = true;
     setSyncStatus('online');
@@ -2515,7 +2516,7 @@ function startFirebaseSync(){
     setSyncStatus('offline');
   });
 
-  db.collection(SETTINGS_DOC_PATH[0]).doc(SETTINGS_DOC_PATH[1]).onSnapshot(function(snap){
+  onSnapshot(doc(db, SETTINGS_DOC_PATH[0], SETTINGS_DOC_PATH[1]), function(snap){
     const data = snap.data() || {};
     customMaterialsCache = data.customMaterials || [];
     customColorsCache = data.customColors || [];
@@ -2544,24 +2545,21 @@ let itemBlockSeq = 0;
 
 function loadOrders(){ return ordersCache; }
 function upsertOrder(id, data){
-  return db.collection(ORDERS_COL).doc(id).set(
-    Object.assign({}, data, {updatedAt: firebase.firestore.FieldValue.serverTimestamp()}),
-    {merge:true}
-  );
+  return setDoc(doc(db, ORDERS_COL, id), Object.assign({}, data, {updatedAt: serverTimestamp()}), {merge:true});
 }
 function removeOrderDoc(id){
-  return db.collection(ORDERS_COL).doc(id).delete();
+  return deleteDoc(doc(db, ORDERS_COL, id));
 }
 
 function loadCustomColors(){ return customColorsCache; }
 function loadCustomMaterials(){ return customMaterialsCache; }
 function saveCustomMaterials(list){
   customMaterialsCache = list;
-  return db.collection(SETTINGS_DOC_PATH[0]).doc(SETTINGS_DOC_PATH[1]).set({customMaterials: list}, {merge:true});
+  return setDoc(doc(db, SETTINGS_DOC_PATH[0], SETTINGS_DOC_PATH[1]), {customMaterials: list}, {merge:true});
 }
 function saveCustomColors(list){
   customColorsCache = list;
-  return db.collection(SETTINGS_DOC_PATH[0]).doc(SETTINGS_DOC_PATH[1]).set({customColors: list}, {merge:true});
+  return setDoc(doc(db, SETTINGS_DOC_PATH[0], SETTINGS_DOC_PATH[1]), {customColors: list}, {merge:true});
 }
 function allColors(){ return BUILTIN_COLORS.concat(loadCustomColors()); }
 function allMaterials(){ return BUILTIN_MATERIALS.concat(loadCustomMaterials()); }
@@ -3138,7 +3136,6 @@ window.toggleItemDone = toggleItemDone;
 
 render();
 startFirebaseSync();
-})();
 </script>
 </body>
 </html>
